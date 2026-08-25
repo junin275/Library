@@ -1,4 +1,4 @@
--- Shadow Hub V2 - Drawing Anti-Capture Version
+-- Shadow Hub V2 - Mobile Fixed Version
 local ShadowHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/junin275/Library/main/ShadowHubLibrary.lua"))()
 
 local Players = game:GetService("Players")
@@ -11,24 +11,11 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
 -- ============================================
--- CHECK DRAWING API (nao aparece em gravacao)
--- ============================================
-
-local HasDrawing = false
-pcall(function()
-	local test = Drawing.new("Line")
-	test:Remove()
-	HasDrawing = true
-end)
-
--- ============================================
 -- CONFIG
 -- ============================================
 
 local Config = {
 	ESP = true,
-	ESPTracer = true,
-	ESPDot = true,
 	AimAssist = false,
 	TargetLock = false,
 	WallCheck = true,
@@ -37,7 +24,6 @@ local Config = {
 	TargetPart = "HumanoidRootPart",
 	AutoHeadshot = false,
 	KillNotify = true,
-	MiniGPS = false,
 	Noclip = false,
 	Fullbright = false,
 	SpeedBoost = false,
@@ -76,12 +62,6 @@ local function IsEnemy(player)
 			if IsColorClose(v.OutlineColor, Color3.fromRGB(0, 255, 100), 0.3) then return false end
 		end
 	end
-	for _, v in ipairs(Workspace:GetDescendants()) do
-		if v:IsA("Highlight") and v.Adornee and (v.Adornee == char or v.Adornee:IsDescendantOf(char)) and v.OutlineColor then
-			if IsColorClose(v.OutlineColor, Color3.fromRGB(255, 0, 0), 0.3) then return true end
-			if IsColorClose(v.OutlineColor, Color3.fromRGB(0, 255, 100), 0.3) then return false end
-		end
-	end
 	return false
 end
 
@@ -92,19 +72,6 @@ local function GetDistance(player)
 		return (myRoot.Position - tRoot.Position).Magnitude
 	end
 	return 9999
-end
-
-local function HasLineOfSight(target)
-	local myChar = LocalPlayer.Character
-	local tChar = target.Character
-	local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-	local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
-	if not myRoot or not tRoot then return false end
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = {myChar, tChar}
-	local result = Workspace:Raycast(myRoot.Position, (tRoot.Position - myRoot.Position), params)
-	return result == nil
 end
 
 local function IsValidTarget(target)
@@ -141,80 +108,36 @@ local function FindTarget()
 end
 
 -- ============================================
--- AIMBOT (Always Active - Camera CFrame)
+-- AIMBOT (Always Active)
 -- ============================================
 
 local function AimAtTarget(target)
 	if not Config.AimAssist then return end
 	if not target or not IsValidTarget(target) then return end
-	if Config.WallCheck and not HasLineOfSight(target) then return end
 	local partName = Config.AutoHeadshot and "Head" or Config.TargetPart
 	local part = target.Character:FindFirstChild(partName)
 	if not part then return end
-	local camPos = Camera.CFrame.Position
-	local targetPos = part.Position
-	Camera.CFrame = CFrame.new(camPos, targetPos)
+	Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
 end
 
 -- ============================================
--- DRAWING ESP (nao aparece em gravacao)
+-- ESP (Simple BillboardGui + Highlight)
 -- ============================================
 
-local ESPFolder = Instance.new("Folder")
-ESPFolder.Name = "M"
-ESPFolder.Parent = Camera
-
-local COLORS = {
-	Enemy = {r=255, g=50, b=50},
-	EnemyB = {r=255, g=80, b=80},
-	Ally = {r=50, g=180, b=255},
-	AllyB = {r=80, g=200, b=255},
-}
-
-local function GetColor(isEnemy)
-	if isEnemy then
-		return COLORS.Enemy, COLORS.EnemyB
-	end
-	return COLORS.Ally, COLORS.AllyB
-end
+local ESPGui = Instance.new("ScreenGui")
+ESPGui.Name = "E"
+ESPGui.ResetOnSpawn = false
+ESPGui.IgnoreGuiInset = true
+ESPGui.DisplayOrder = 998
+ESPGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local function RemoveESP(player)
 	local data = State.ESP[player]
 	if data then
-		if HasDrawing then
-			for _, obj in ipairs(data.Drawing or {}) do
-				pcall(function() obj:Remove() end)
-			end
-		end
+		pcall(function() data.Frame:Destroy() end)
 		pcall(function() data.Highlight:Destroy() end)
 		State.ESP[player] = nil
 	end
-end
-
-local function HideESP(player)
-	local data = State.ESP[player]
-	if not data then return end
-	if HasDrawing then
-		for _, obj in ipairs(data.Drawing or {}) do
-			pcall(function() obj.Visible = false end)
-		end
-	end
-	pcall(function()
-		data.Highlight.Enabled = false
-	end)
-end
-
-local function ShowESP(player)
-	local data = State.ESP[player]
-	if not data then return end
-	if HasDrawing then
-		for _, obj in ipairs(data.Drawing or {}) do
-			pcall(function() obj.Visible = true end)
-		end)
-	end
-	pcall(function()
-		data.Highlight.Enabled = true
-	end)
 end
 
 local function CreateESP(player)
@@ -228,100 +151,91 @@ local function CreateESP(player)
 	if not head or not root or not hum then return end
 
 	local isEnemy = IsEnemy(player)
-	local c, cB = GetColor(isEnemy)
+	local c = isEnemy and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(50, 180, 255)
 
-	local drawingObjs = {}
+	-- BillboardGui (always on screen)
+	local bb = Instance.new("BillboardGui")
+	bb.Name = "B"
+	bb.Adornee = head
+	bb.Size = UDim2.new(0, 150, 0, 45)
+	bb.StudsOffset = Vector3.new(0, 2.5, 0)
+	bb.AlwaysOnTop = true
+	bb.MaxDistance = Config.MaxDistance
+	bb.Parent = ESPGui
 
-	if HasDrawing then
-		-- Tracer line (Drawing - NOT captured by recorders)
-		local tracer = Drawing.new("Line")
-		tracer.Color = Color3.fromRGB(c.r, c.g, c.b)
-		tracer.Thickness = 1.5
-		tracer.Transparency = 0.6
-		tracer.Visible = false
-		table.insert(drawingObjs, tracer)
+	-- Background
+	local bg = Instance.new("Frame", bb)
+	bg.Size = UDim2.new(1, 0, 1, 0)
+	bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	bg.BackgroundTransparency = 0.6
+	bg.BorderSizePixel = 0
+	Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 4)
 
-		-- Box outline
-		local boxOutline = Drawing.new("Quad")
-		boxOutline.Color = Color3.fromRGB(0, 0, 0)
-		boxOutline.Thickness = 3
-		boxOutline.Transparency = 0.5
-		boxOutline.Filled = false
-		boxOutline.Visible = false
-		table.insert(drawingObjs, boxOutline)
+	-- Color bar
+	local bar = Instance.new("Frame", bg)
+	bar.Size = UDim2.new(0, 3, 1, 0)
+	bar.BackgroundColor3 = c
+	bar.BorderSizePixel = 0
 
-		-- Box
-		local box = Drawing.new("Quad")
-		box.Color = Color3.fromRGB(c.r, c.g, c.b)
-		box.Thickness = 1
-		box.Transparency = 0.8
-		box.Filled = false
-		box.Visible = false
-		table.insert(drawingObjs, box)
+	-- Name
+	local nameLabel = Instance.new("TextLabel", bg)
+	nameLabel.Size = UDim2.new(1, -10, 0, 14)
+	nameLabel.Position = UDim2.new(0, 8, 0, 2)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = player.DisplayName
+	nameLabel.TextColor3 = c
+	nameLabel.TextStrokeTransparency = 0
+	nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.TextSize = 11
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-		-- Name
-		local name = Drawing.new("Text")
-		name.Color = Color3.fromRGB(cB.r, cB.g, cB.b)
-		name.Size = 13
-		name.Center = true
-		name.Outline = true
-		name.OutlineColor = Color3.new(0, 0, 0)
-		name.Visible = false
-		table.insert(drawingObjs, name)
+	-- Distance
+	local distLabel = Instance.new("TextLabel", bg)
+	distLabel.Size = UDim2.new(1, -10, 0, 10)
+	distLabel.Position = UDim2.new(0, 8, 0, 16)
+	distLabel.BackgroundTransparency = 1
+	distLabel.Text = "0m"
+	distLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
+	distLabel.TextStrokeTransparency = 0
+	distLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+	distLabel.Font = Enum.Font.Gotham
+	distLabel.TextSize = 9
+	distLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-		-- Distance
-		local dist = Drawing.new("Text")
-		dist.Color = Color3.fromRGB(180, 180, 195)
-		dist.Size = 11
-		dist.Center = true
-		dist.Outline = true
-		dist.OutlineColor = Color3.new(0, 0, 0)
-		dist.Visible = false
-		table.insert(drawingObjs, dist)
+	-- HP Bar
+	local hpBG = Instance.new("Frame", bg)
+	hpBG.Size = UDim2.new(0.9, 0, 0, 4)
+	hpBG.Position = UDim2.new(0.05, 0, 0, 30)
+	hpBG.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	hpBG.BorderSizePixel = 0
+	Instance.new("UICorner", hpBG).CornerRadius = UDim.new(0, 2)
 
-		-- Health bar outline
-		local hpOutline = Drawing.new("Line")
-		hpOutline.Color = Color3.fromRGB(0, 0, 0)
-		hpOutline.Thickness = 3
-		hpOutline.Transparency = 0.5
-		hpOutline.Visible = false
-		table.insert(drawingObjs, hpOutline)
+	local hpFill = Instance.new("Frame", hpBG)
+	hpFill.Size = UDim2.new(1, 0, 1, 0)
+	hpFill.BackgroundColor3 = Color3.fromRGB(50, 255, 100)
+	hpFill.BorderSizePixel = 0
+	Instance.new("UICorner", hpFill).CornerRadius = UDim.new(0, 2)
 
-		-- Health bar
-		local hpBar = Drawing.new("Line")
-		hpBar.Color = Color3.fromRGB(50, 255, 100)
-		hpBar.Thickness = 1
-		hpBar.Transparency = 0.8
-		hpBar.Visible = false
-		table.insert(drawingObjs, hpBar)
-
-		-- Dot
-		local dot = Drawing.new("Circle")
-		dot.Color = Color3.fromRGB(cB.r, cB.g, cB.b)
-		dot.Radius = 4
-		dot.Filled = true
-		dot.Transparency = 0.8
-		dot.Visible = false
-		table.insert(drawingObjs, dot)
-	end
-
-	-- Highlight (this shows in game but not in recordings usually)
+	-- Highlight
 	local hl = Instance.new("Highlight")
 	hl.Name = "H"
 	hl.Adornee = char
-	hl.FillColor = Color3.fromRGB(c.r, c.g, c.b)
-	hl.FillTransparency = 0.8
-	hl.OutlineColor = Color3.fromRGB(cB.r, cB.g, cB.b)
-	hl.OutlineTransparency = 0.1
+	hl.FillColor = c
+	hl.FillTransparency = 0.7
+	hl.OutlineColor = Color3.new(1, 1, 1)
+	hl.OutlineTransparency = 0
 	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	hl.Parent = ESPFolder
+	hl.Parent = ESPGui
 
 	State.ESP[player] = {
+		Billboard = bb,
 		Highlight = hl,
-		Drawing = drawingObjs,
+		NameLabel = nameLabel,
+		DistLabel = distLabel,
+		HPFill = hpFill,
 		IsEnemy = isEnemy,
-		C = c,
-		CB = cB,
+		Color = c,
 	}
 end
 
@@ -336,7 +250,7 @@ local function UpdateESP(player)
 	end
 	local dist = GetDistance(player)
 	if dist > Config.MaxDistance then
-		HideESP(player)
+		RemoveESP(player)
 		return
 	end
 
@@ -351,112 +265,22 @@ local function UpdateESP(player)
 		data = State.ESP[player]
 	end
 	if not data then return end
-	ShowESP(player)
 
-	local c = data.C
-	local cB = data.CB
-
+	-- Update
 	pcall(function()
-		data.Highlight.Adornee = char
-		data.Highlight.FillColor = Color3.fromRGB(c.r, c.g, c.b)
-		data.Highlight.OutlineColor = Color3.fromRGB(cB.r, cB.g, cB.b)
-	end)
-
-	if HasDrawing and #data.Drawing >= 8 then
-		local drawing = data.Drawing
-		local tracer = drawing[1]
-		local boxOutline = drawing[2]
-		local box = drawing[3]
-		local nameLabel = drawing[4]
-		local distLabel = drawing[5]
-		local hpOutline = drawing[6]
-		local hpBar = drawing[7]
-		local dot = drawing[8]
-
-		local ok, sp = pcall(function()
-			return Camera:WorldToViewportPoint(root.Position)
-		end)
-
-		if ok and sp and sp.Z > 0 then
-			local screenPos = Vector2.new(sp.X, sp.Y)
-			local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-			local onScreen = sp.Z > 0
-
-			-- Box (3D corners projected)
-			local top = Camera:WorldToViewportPoint(root.Position + Vector3.new(0, 3, 0))
-			local bottom = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3.5, 0))
-			local height = math.abs(top.Y - bottom.Y)
-			local width = height * 0.55
-			local topLeft = Vector2.new(screenPos.X - width / 2, top.Y)
-			local topRight = Vector2.new(screenPos.X + width / 2, top.Y)
-			local botLeft = Vector2.new(screenPos.X - width / 2, bottom.Y)
-			local botRight = Vector2.new(screenPos.X + width / 2, bottom.Y)
-
-			boxOutline.PointA = topLeft
-			boxOutline.PointB = topRight
-			boxOutline.PointC = botRight
-			boxOutline.PointD = botLeft
-			boxOutline.Visible = Config.ESPTracer
-
-			box.PointA = topLeft
-			box.PointB = topRight
-			box.PointC = botRight
-			box.PointD = botLeft
-			box.Visible = Config.ESPTracer
-
-			-- Tracer
-			tracer.From = screenCenter
-			tracer.To = screenPos
-			tracer.Color = Color3.fromRGB(c.r, c.g, c.b)
-			tracer.Visible = Config.ESPTracer
-
-			-- Name
-			nameLabel.Position = Vector2.new(screenPos.X, top.Y - 16)
-			nameLabel.Text = player.DisplayName
-			nameLabel.Color = Color3.fromRGB(cB.r, cB.g, cB.b)
-			nameLabel.Visible = true
-
-			-- Distance
-			distLabel.Position = Vector2.new(screenPos.X, bottom.Y + 2)
-			distLabel.Text = math.floor(dist) .. "m"
-			distLabel.Visible = true
-
-			-- HP bar
-			local hpPct = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
-			local hpX = topLeft.X - 6
-			local hpTop = topLeft.Y
-			local hpBot = bottom.Y
-			local hpLen = (hpBot - hpTop) * hpPct
-
-			hpOutline.From = Vector2.new(hpX, hpTop)
-			hpOutline.To = Vector2.new(hpX, hpBot)
-			hpOutline.Visible = true
-
-			hpBar.From = Vector2.new(hpX, hpBot - hpLen)
-			hpBar.To = Vector2.new(hpX, hpBot)
-			if hpPct > 0.6 then
-				hpBar.Color = Color3.fromRGB(50, 255, 100)
-			elseif hpPct > 0.3 then
-				hpBar.Color = Color3.fromRGB(255, 200, 50)
-			else
-				hpBar.Color = Color3.fromRGB(255, 50, 50)
-			end
-			hpBar.Visible = true
-
-			-- Dot
-			dot.Position = screenPos
-			dot.Visible = Config.ESPDot
+		data.NameLabel.Text = player.DisplayName
+		data.DistLabel.Text = math.floor(dist) .. "m"
+		local hpPct = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
+		data.HPFill.Size = UDim2.new(hpPct, 0, 1, 0)
+		if hpPct > 0.6 then
+			data.HPFill.BackgroundColor3 = Color3.fromRGB(50, 255, 100)
+		elseif hpPct > 0.3 then
+			data.HPFill.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
 		else
-			tracer.Visible = false
-			boxOutline.Visible = false
-			box.Visible = false
-			nameLabel.Visible = false
-			distLabel.Visible = false
-			hpOutline.Visible = false
-			hpBar.Visible = false
-			dot.Visible = false
+			data.HPFill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 		end
-	end
+		data.Highlight.Adornee = char
+	end)
 end
 
 local function UpdateAllESP()
@@ -469,58 +293,6 @@ local function UpdateAllESP()
 			UpdateESP(p)
 		end
 	end
-end
-
--- ============================================
--- GPS (Drawing)
--- ============================================
-
-local GPSObjects = {}
-if HasDrawing then
-	local gpsBg = Drawing.new("Square")
-	gpsBg.Size = Vector2.new(120, 70)
-	gpsBg.Position = Vector2.new(Camera.ViewportSize.X - 135, 12)
-	gpsBg.Color = Color3.fromRGB(15, 15, 25)
-	gpsBg.Transparency = 0.85
-	gpsBg.Filled = true
-	gpsBg.Visible = false
-	table.insert(GPSObjects, gpsBg)
-
-	local gpsBorder = Drawing.new("Square")
-	gpsBorder.Size = Vector2.new(120, 70)
-	gpsBorder.Position = Vector2.new(Camera.ViewportSize.X - 135, 12)
-	gpsBorder.Color = Color3.fromRGB(180, 0, 255)
-	gpsBorder.Thickness = 1
-	gpsBorder.Filled = false
-	gpsBorder.Visible = false
-	table.insert(GPSObjects, gpsBorder)
-
-	local gpsArrow = Drawing.new("Text")
-	gpsArrow.Text = "\226\136\128"
-	gpsArrow.Color = Color3.fromRGB(50, 255, 100)
-	gpsArrow.Size = 20
-	gpsArrow.Center = true
-	gpsArrow.Outline = true
-	gpsArrow.Visible = false
-	table.insert(GPSObjects, gpsArrow)
-
-	local gpsDist = Drawing.new("Text")
-	gpsDist.Text = "--"
-	gpsDist.Color = Color3.fromRGB(180, 0, 255)
-	gpsDist.Size = 11
-	gpsDist.Center = true
-	gpsDist.Outline = true
-	gpsDist.Visible = false
-	table.insert(GPSObjects, gpsDist)
-
-	local gpsName = Drawing.new("Text")
-	gpsName.Text = "procurando..."
-	gpsName.Color = Color3.fromRGB(200, 200, 210)
-	gpsName.Size = 9
-	gpsName.Center = true
-	gpsName.Outline = true
-	gpsName.Visible = false
-	table.insert(GPSObjects, gpsName)
 end
 
 -- ============================================
@@ -546,25 +318,21 @@ local function SetFullbright(on)
 		Lighting.Brightness = 2
 		Lighting.Ambient = Color3.fromRGB(178, 178, 178)
 		Lighting.OutdoorAmbient = Color3.fromRGB(178, 178, 178)
-		Lighting.FogEnd = 100000
 	else
 		Lighting.Brightness = 1
 		Lighting.Ambient = Color3.fromRGB(70, 70, 70)
 		Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
-		Lighting.FogEnd = 100000
 	end
 end
 
 local function SetSpeed(on)
 	Config.SpeedBoost = on
-	local char = LocalPlayer.Character
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
 	if hum then hum.WalkSpeed = on and 32 or 16 end
 end
 
 local function TeleportToEnemy()
-	local char = LocalPlayer.Character
-	local root = char and char:FindFirstChild("HumanoidRootPart")
+	local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 	if not root then return end
 	local best, bestDist
 	for _, p in ipairs(Players:GetPlayers()) do
@@ -615,7 +383,9 @@ local function MonitorPlayer(player)
 							game:GetService("Debris"):AddItem(s, 2)
 						end)
 					end
-					ShadowHub:Notify("Kill", player.DisplayName, "kill", 3)
+					if Config.KillNotify then
+						ShadowHub:Notify("Kill", player.DisplayName, "kill", 3)
+					end
 					if State.Target == player then State.Target = nil end
 					if State.Streak == 3 then ShadowHub:Notify("Streak!", "3x", "streak", 3) end
 					if State.Streak == 5 then ShadowHub:Notify("Streak!", "5x", "streak", 3) end
@@ -663,8 +433,6 @@ menu:Toggle(s1, "ESP", true, function(v)
 	Config.ESP = v
 	if not v then for p in pairs(State.ESP) do RemoveESP(p) end end
 end)
-menu:Toggle(s1, "Tracer", true, function(v) Config.ESPTracer = v end)
-menu:Toggle(s1, "Dot", true, function(v) Config.ESPDot = v end)
 menu:Toggle(s1, "Aimbot", false, function(v) Config.AimAssist = v end)
 menu:Label(s1, "Sempre ativo quando ligado")
 menu:Toggle(s1, "Target Lock", false, function(v)
@@ -675,11 +443,9 @@ menu:Toggle(s1, "Auto Headshot", false, function(v) Config.AutoHeadshot = v end)
 menu:Slider(s1, "Distance", 50, 5000, 2000, function(v) Config.MaxDistance = v end)
 
 local s3 = menu:Section("UTIL")
-menu:Toggle(s3, "GPS", false, function(v) Config.MiniGPS = v end)
 menu:Toggle(s3, "Kill Notif", true, function(v) Config.KillNotify = v end)
 menu:Toggle(s3, "Hit Sound", true, function(v) Config.HitSound = v end)
 menu:Toggle(s3, "FFA Mode", true, function(v) Config.FFAMode = v end)
-menu:Toggle(s3, "Wall Check", true, function(v) Config.WallCheck = v end)
 menu:Button(s3, "Teleport", TeleportToEnemy)
 
 local s4 = menu:Section("EXPLOITS")
@@ -719,44 +485,13 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 	end
 
-	if Config.MiniGPS and HasDrawing and #GPSObjects >= 5 then
-		local myChar = LocalPlayer.Character
-		local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-		local gpsTarget = State.Target or FindTarget()
-		if gpsTarget and myRoot then
-			local tRoot = gpsTarget.Character and gpsTarget.Character:FindFirstChild("HumanoidRootPart")
-			if tRoot then
-				local dist = (myRoot.Position - tRoot.Position).Magnitude
-				local dir = (tRoot.Position - myRoot.Position).Unit
-				local look = myRoot.CFrame.LookVector
-				local angle = math.atan2(dir.X * look.Z - dir.Z * look.X, dir.X * look.X + dir.Z * look.Z)
-
-				local posX = Camera.ViewportSize.X - 135
-				GPSObjects[1].Position = Vector2.new(posX, 12)
-				GPSObjects[1].Visible = true
-				GPSObjects[2].Position = Vector2.new(posX, 12)
-				GPSObjects[2].Visible = true
-				GPSObjects[3].Position = Vector2.new(posX + 60, 20)
-				GPSObjects[3].Rotation = -math.deg(angle)
-				GPSObjects[3].Visible = true
-				GPSObjects[4].Position = Vector2.new(posX + 60, 42)
-				GPSObjects[4].Text = math.floor(dist) .. "m"
-				GPSObjects[4].Visible = true
-				GPSObjects[5].Position = Vector2.new(posX + 60, 56)
-				GPSObjects[5].Text = gpsTarget.DisplayName
-				GPSObjects[5].Visible = true
-			end
-		else
-			for _, obj in ipairs(GPSObjects) do obj.Visible = false end
-		end
-	elseif not Config.MiniGPS then
-		if HasDrawing then
-			for _, obj in ipairs(GPSObjects) do obj.Visible = false end
-		end
-	end
-
 	pcall(function() Camera.FieldOfView = Config.FOV end)
 	status:SetText("K: " .. State.Kills .. " | S: " .. State.Streak)
 end)
 
-print("[SH] Drawing ESP Ready | HasDrawing: " .. tostring(HasDrawing))
+StarterGui:SetCore("SendNotification", {
+	Title = "SH",
+	Text = "Pronto!",
+	Duration = 2,
+})
+print("[SH] Ready!")
