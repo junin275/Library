@@ -200,7 +200,7 @@ local function CreateESP(player)
 	local card = Instance.new("Frame", bb)
 	card.Size = UDim2.new(1, 0, 1, 0)
 	card.BackgroundColor3 = Color3.fromRGB(8, 8, 15)
-	card.BackgroundTransparency = 0.25
+	card.BackgroundTransparency = 0.65
 	card.BorderSizePixel = 0
 	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 5)
 
