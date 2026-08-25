@@ -1,117 +1,207 @@
+-- ============================================
+-- SHADOW HUB - DEBUG RELOAD (DELTA)
+-- ============================================
+
 local Players = game:GetService("Players")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local LocalPlayer = Players.LocalPlayer
 
+-- GUI
 local gui = Instance.new("ScreenGui")
-gui.Name = "BtnFinder"
+gui.Name = "DebugReload"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 999
 gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(0, 60, 0, 60)
-btn.Position = UDim2.new(0, 10, 0.5, -30)
-btn.BackgroundColor3 = Color3.fromRGB(180, 0, 255)
-btn.Text = "ACHAR"
-btn.TextColor3 = Color3.new(1, 1, 1)
-btn.Font = Enum.Font.GothamBold
-btn.TextSize = 10
-btn.Parent = gui
-Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
+-- Main Frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 300, 0, 250)
+frame.Position = UDim2.new(0.5, -150, 0, 50)
+frame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+frame.BorderSizePixel = 0
+frame.Parent = gui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+Instance.new("UIStroke", frame).Color = Color3.fromRGB(255, 100, 50)
 
-local popup = Instance.new("Frame")
-popup.Size = UDim2.new(0, 250, 0, 40)
-popup.Position = UDim2.new(0, 80, 0.5, -20)
-popup.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
-popup.BorderSizePixel = 0
-popup.Visible = false
-popup.Parent = gui
-Instance.new("UICorner", popup).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", popup).Color = Color3.fromRGB(0, 180, 100)
+-- Title
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 25)
+title.BackgroundColor3 = Color3.fromRGB(255, 100, 50)
+title.BackgroundTransparency = 0.8
+title.Text = "DEBUG RELOAD - DELTA"
+title.TextColor3 = Color3.fromRGB(255, 100, 50)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 12
 
-local popupText = Instance.new("TextLabel", popup)
-popupText.Size = UDim2.new(1, 0, 1, 0)
-popupText.BackgroundTransparency = 1
-popupText.Text = "COPIADO!"
-popupText.TextColor3 = Color3.fromRGB(0, 255, 100)
-popupText.Font = Enum.Font.GothamBold
-popupText.TextSize = 12
+-- Ammo Display
+local ammoLabel = Instance.new("TextLabel", frame)
+ammoLabel.Size = UDim2.new(1, -10, 0, 30)
+ammoLabel.Position = UDim2.new(0, 5, 0, 30)
+ammoLabel.BackgroundTransparency = 1
+ammoLabel.Text = "AMMO: verificando..."
+ammoLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
+ammoLabel.Font = Enum.Font.Code
+ammoLabel.TextSize = 12
 
-local function Collect()
-    local r = {}
-    table.insert(r, "=== BUTTONS ===")
-    
-    local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-    
-    -- Find ALL TextButtons
-    for _, g in ipairs(playerGui:GetDescendants()) do
-        if g:IsA("TextButton") or g:IsA("ImageButton") then
-            local name = g.Name:lower()
-            local text = ""
-            if g:IsA("TextButton") then text = g.Text end
-            
-            -- Check if could be reload
-            if name:find("reload") or name:find("r") or name:find("ammo") or name:find("bullet") 
-            or text:lower():find("reload") or text:lower():find("recarregar")
-            or name:find("fire") or name:find("shoot") or name:find("attack") then
-                table.insert(r, g.ClassName .. " '" .. g.Name .. "' Text='" .. text .. "'")
-                table.insert(r, "  Path: " .. g:GetFullName())
-                table.insert(r, "  Visible: " .. tostring(g.Visible))
-                table.insert(r, "  Active: " .. tostring(g.Active))
-                table.insert(r, "")
-            end
+-- Status
+local statusLabel = Instance.new("TextLabel", frame)
+statusLabel.Size = UDim2.new(1, -10, 0, 30)
+statusLabel.Position = UDim2.new(0, 5, 0, 60)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "STATUS: aguardando..."
+statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+statusLabel.Font = Enum.Font.Code
+statusLabel.TextSize = 10
+
+-- Button Status
+local btnStatus = Instance.new("TextLabel", frame)
+btnStatus.Size = UDim2.new(1, -10, 0, 30)
+btnStatus.Position = UDim2.new(0, 5, 0, 90)
+btnStatus.BackgroundTransparency = 1
+btnStatus.Text = "BOTAO: procurando..."
+btnStatus.TextColor3 = Color3.fromRGB(100, 200, 255)
+btnStatus.Font = Enum.Font.Code
+btnStatus.TextSize = 10
+
+-- Test Reload Button
+local testBtn = Instance.new("TextButton", frame)
+testBtn.Size = UDim2.new(0.9, 0, 0, 35)
+testBtn.Position = UDim2.new(0.05, 0, 0, 130)
+testBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+testBtn.Text = "TESTAR RELOAD"
+testBtn.TextColor3 = Color3.new(1, 1, 1)
+testBtn.Font = Enum.Font.GothamBold
+testBtn.TextSize = 12
+Instance.new("UICorner", testBtn).CornerRadius = UDim.new(0, 6)
+
+-- Test Key R Button
+local testKeyBtn = Instance.new("TextButton", frame)
+testKeyBtn.Size = UDim2.new(0.9, 0, 0, 35)
+testKeyBtn.Position = UDim2.new(0.05, 0, 0, 170)
+testKeyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 255)
+testKeyBtn.Text = "TESTAR TECLA R"
+testKeyBtn.TextColor3 = Color3.new(1, 1, 1)
+testKeyBtn.Font = Enum.Font.GothamBold
+testKeyBtn.TextSize = 12
+Instance.new("UICorner", testKeyBtn).CornerRadius = UDim.new(0, 6)
+
+-- Close Button
+local closeBtn = Instance.new("TextButton", frame)
+closeBtn.Size = UDim2.new(0.9, 0, 0, 25)
+closeBtn.Position = UDim2.new(0.05, 0, 0, 210)
+closeBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+closeBtn.Text = "FECHAR"
+closeBtn.TextColor3 = Color3.new(1, 1, 1)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 10
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 4)
+
+-- Functions
+local function GetAmmo()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return nil end
+
+    local ammoUI = playerGui:FindFirstChild("ReactUI")
+        and playerGui.ReactUI:FindFirstChild("AmmoUI")
+        and playerGui.ReactUI.AmmoUI:FindFirstChild("AmmoLine")
+        and playerGui.ReactUI.AmmoLine:FindFirstChild("Text")
+        and playerGui.ReactUI.AmmoLine.Text:FindFirstChild("Main")
+
+    if ammoUI then
+        local text = ammoUI.Text
+        local current, max = text:match("(%d+)%s*|%s*(%d+)")
+        if current and max then
+            return tonumber(current), tonumber(max), text
         end
     end
-    
-    -- Find ALL buttons in ReactUI
-    table.insert(r, "--- REACTUI BUTTONS ---")
-    local reactUI = playerGui:FindFirstChild("ReactUI")
-    if reactUI then
-        for _, g in ipairs(reactUI:GetDescendants()) do
-            if g:IsA("TextButton") or g:IsA("ImageButton") then
-                local text = ""
-                if g:IsA("TextButton") then text = g.Text end
-                table.insert(r, g.Name .. " = '" .. text .. "'")
-            end
-        end
-    end
-    table.insert(r, "")
-    
-    -- Find buttons with images (could be icon buttons)
-    table.insert(r, "--- IMAGE BUTTONS ---")
-    for _, g in ipairs(playerGui:GetDescendants()) do
-        if g:IsA("ImageButton") then
-            table.insert(r, g.Name .. " Image=" .. g.Image)
-            table.insert(r, "  Path: " .. g:GetFullName())
-        end
-    end
-    table.insert(r, "")
-    
-    -- Find button-like frames
-    table.insert(r, "--- CLICKABLE FRAMES ---")
-    for _, g in ipairs(playerGui:GetDescendants()) do
-        if g:IsA("Frame") and g.Active then
-            local name = g.Name:lower()
-            if name:find("reload") or name:find("btn") or name:find("button") then
-                table.insert(r, g.Name .. " Active=true Path: " .. g:GetFullName())
-            end
-        end
-    end
-    
-    table.insert(r, "")
-    table.insert(r, "=== FIM ===")
-    
-    local data = table.concat(r, "\n")
-    pcall(function()
-        if setclipboard then setclipboard(data) end
-    end)
-    
-    popup.Visible = true
-    popupText.Text = "COPIADO! (" .. #r .. " linhas)"
-    task.delay(2, function()
-        popup.Visible = false
-    end)
+    return nil
 end
 
-btn.MouseButton1Click:Connect(Collect)
-print("[SH] Button Finder aberto!")
+local function GetReloadButton()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return nil end
+    local reactUI = playerGui:FindFirstChild("ReactUI")
+    if not reactUI then return nil end
+    local mobileUI = reactUI:FindFirstChild("MobileControlsUI")
+    if not mobileUI then return nil end
+    return mobileUI:FindFirstChild("ReloadButton")
+end
+
+local function TestReload()
+    local reloadBtn = GetReloadButton()
+    if not reloadBtn then
+        btnStatus.Text = "BOTAO: NAO ENCONTRADO!"
+        return
+    end
+
+    local absPos = reloadBtn.AbsolutePosition
+    local absSize = reloadBtn.AbsoluteSize
+    local centerX = absPos.X + absSize.X / 2
+    local centerY = absPos.Y + absSize.Y / 2
+
+    btnStatus.Text = "BOTAO: " .. math.floor(centerX) .. "," .. math.floor(centerY)
+    statusLabel.Text = "STATUS: clicando..."
+    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+
+    -- Method 1: VirtualInputManager
+    pcall(function()
+        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
+        task.wait(0.1)
+        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
+    end)
+
+    statusLabel.Text = "STATUS: cliquei VIM!"
+    task.wait(1)
+
+    -- Check if ammo changed
+    local newAmmo = GetAmmo()
+    if newAmmo then
+        statusLabel.Text = "STATUS: ammo=" .. tostring(newAmmo)
+    end
+end
+
+local function TestKeyR()
+    statusLabel.Text = "STATUS: tecla R..."
+    statusLabel.TextColor3 = Color3.fromRGB(100, 100, 255)
+
+    -- Try keypress
+    pcall(function()
+        -- Delta keypress
+        if keypress then
+            keypress(0x52) -- R key
+            task.wait(0.1)
+            keyrelease(0x52)
+        end
+    end)
+
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.R, false, game)
+    end)
+
+    statusLabel.Text = "STATUS: enviei R!"
+    task.wait(1)
+end
+
+-- Update Loop
+task.spawn(function()
+    while true do
+        local ammo, max, raw = GetAmmo()
+        if ammo then
+            ammoLabel.Text = "AMMO: " .. ammo .. " / " .. max .. " [" .. raw .. "]"
+        else
+            ammoLabel.Text = "AMMO: nao encontrado"
+        end
+        task.wait(0.5)
+    end
+end)
+
+testBtn.MouseButton1Click:Connect(TestReload)
+testKeyBtn.MouseButton1Click:Connect(TestKeyR)
+closeBtn.MouseButton1Click:Connect(function()
+    gui:Destroy()
+end)
+
+print("[SH] Debug Reload Delta aberto!")
