@@ -1,4 +1,4 @@
--- Shadow Hub V2 - Auto Reload Version
+-- Shadow Hub V2 - Auto Reload (Mobile) Version
 local ShadowHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/junin275/Library/main/ShadowHubLibrary.lua"))()
 
 local Players = game:GetService("Players")
@@ -46,6 +46,7 @@ local State = {
 	Streak = 0,
 	LastHP = {},
 	LastAmmo = -1,
+	ReloadCooldown = false,
 }
 
 -- ============================================
@@ -102,8 +103,21 @@ local function IsValidTarget(target)
 end
 
 -- ============================================
--- AUTO RELOAD (Ammo Detection)
+-- AUTO RELOAD (Mobile - Click ReloadButton)
 -- ============================================
+
+local function GetReloadButton()
+	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+	if not playerGui then return nil end
+
+	local reactUI = playerGui:FindFirstChild("ReactUI")
+	if not reactUI then return nil end
+
+	local mobileUI = reactUI:FindFirstChild("MobileControlsUI")
+	if not mobileUI then return nil end
+
+	return mobileUI:FindFirstChild("ReloadButton")
+end
 
 local function GetCurrentAmmo()
 	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
@@ -117,7 +131,6 @@ local function GetCurrentAmmo()
 
 	if ammoLabel then
 		local text = ammoLabel.Text
-		-- Parse "[    0    |    5    ]"
 		local current, max = text:match("(%d+)%s*|%s*(%d+)")
 		if current and max then
 			return tonumber(current), tonumber(max)
@@ -126,50 +139,60 @@ local function GetCurrentAmmo()
 	return nil, nil
 end
 
+local function ClickReloadButton()
+	local reloadBtn = GetReloadButton()
+	if reloadBtn then
+		-- Method 1: Fire Activated event
+		pcall(function()
+			reloadBtn.Activated:Fire()
+		end)
+
+		-- Method 2: Simulate mouse click
+		pcall(function()
+			local VirtualInputManager = game:GetService("VirtualInputManager")
+			local gui = reloadBtn
+			local absPos = gui.AbsolutePosition
+			local absSize = gui.AbsoluteSize
+			local x = absPos.X + absSize.X / 2
+			local y = absPos.Y + absSize.Y / 2
+
+			VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 1)
+			task.wait(0.05)
+			VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 1)
+		end)
+
+		-- Method 3: Fire InputBegan on the button
+		pcall(function()
+			local inputService = game:GetService("UserInputService")
+			local gui = reloadBtn
+			local input = Instance.new("InputObject")
+			input.InputType = Enum.UserInputType.MouseButton1
+			input.Position = Vector2.new(0, 0)
+			input.UserInputState = Enum.UserInputState.Begin
+			gui.InputBegan:Fire(input)
+			task.wait(0.05)
+			input.UserInputState = Enum.UserInputState.End
+			gui.InputEnded:Fire(input)
+		end)
+
+		return true
+	end
+	return false
+end
+
 local function AutoReloadWeapon()
 	if not Config.AutoReload then return end
+	if State.ReloadCooldown then return end
 
 	local currentAmmo, maxAmmo = GetCurrentAmmo()
 	if currentAmmo == nil then return end
 
-	-- If ammo is 0, try to reload
 	if currentAmmo == 0 then
-		-- Method 1: Press R key
-		pcall(function()
-			local VirtualInputManager = game:GetService("VirtualInputManager")
-			VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game)
-			task.wait(0.1)
-			VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.R, false, game)
+		State.ReloadCooldown = true
+		ClickReloadButton()
+		task.delay(0.5, function()
+			State.ReloadCooldown = false
 		end)
-
-		-- Method 2: Try tool:Activate()
-		pcall(function()
-			local char = LocalPlayer.Character
-			if char then
-				for _, tool in ipairs(char:GetChildren()) do
-					if tool:IsA("Tool") then
-						tool:Activate()
-					end
-				end
-			end
-		end)
-
-		-- Method 3: Fire any reload remote in tool
-		pcall(function()
-			local char = LocalPlayer.Character
-			if char then
-				for _, tool in ipairs(char:GetChildren()) do
-					if tool:IsA("Tool") then
-						for _, remote in ipairs(tool:GetDescendants()) do
-							if remote:IsA("RemoteEvent") and remote.Name:lower():find("reload") then
-								remote:FireServer()
-							end
-						end
-					end
-				end
-			end
-		end)
-
 		State.LastAmmo = currentAmmo
 	elseif currentAmmo > 0 then
 		State.LastAmmo = currentAmmo
@@ -725,7 +748,7 @@ menu:Slider(s1, "Distance", 50, 5000, 2000, function(v) Config.MaxDistance = v e
 -- UTIL
 local s3 = menu:Section("UTIL")
 menu:Toggle(s3, "Auto Reload", true, function(v) Config.AutoReload = v end)
-menu:Label(s3, "Recarrega quando ammo = 0")
+menu:Label(s3, "Clica no botao R quando ammo=0")
 menu:Toggle(s3, "GPS", false, function(v) Config.MiniGPS = v GPSFrame.Visible = v end)
 menu:Toggle(s3, "Kill Notif", true, function(v) Config.KillNotify = v end)
 menu:Toggle(s3, "Hit Sound", true, function(v) Config.HitSound = v end)
@@ -806,4 +829,4 @@ StarterGui:SetCore("SendNotification", {
 	Text = "Pronto!",
 	Duration = 2,
 })
-print("[SH] Ready with Auto Reload!")
+print("[SH] Ready with Auto Reload Mobile!")
