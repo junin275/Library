@@ -73,20 +73,23 @@ local function IsValidTarget(target)
 	return hum and root and hum.Health > 0
 end
 
--- AUTO RELOAD (Delta Safe - Uses Tool:Activate)
+-- AUTO RELOAD (Delta Safe)
 local function GetCurrentAmmo()
 	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
 	if not playerGui then return nil end
-	local ammoUI = playerGui:FindFirstChild("ReactUI")
-		and playerGui.ReactUI:FindFirstChild("AmmoUI")
-		and playerGui.ReactUI.AmmoUI:FindFirstChild("AmmoLine")
-		and playerGui.ReactUI.AmmoLine:FindFirstChild("Text")
-		and playerGui.ReactUI.AmmoLine.Text:FindFirstChild("Main")
-	if ammoUI then
-		local text = ammoUI.Text
-		local current, max = text:match("(%d+)%s*|%s*(%d+)")
-		if current and max then return tonumber(current), tonumber(max) end
-	end
+	local reactUI = playerGui:FindFirstChild("ReactUI")
+	if not reactUI then return nil end
+	local ammoUI = reactUI:FindFirstChild("AmmoUI")
+	if not ammoUI then return nil end
+	local ammoLine = ammoUI:FindFirstChild("AmmoLine")
+	if not ammoLine then return nil end
+	local text = ammoLine:FindFirstChild("Text")
+	if not text then return nil end
+	local main = text:FindFirstChild("Main")
+	if not main then return nil end
+	local raw = main.Text
+	local current, max = raw:match("(%d+)%s*|%s*(%d+)")
+	if current and max then return tonumber(current), tonumber(max) end
 	return nil, nil
 end
 
@@ -94,18 +97,26 @@ local function SafeReload()
 	if State.IsReloading then return end
 	State.IsReloading = true
 
-	-- Only press R briefly, no long press
+	-- Show reload indicator
+	pcall(function()
+		StarterGui:SetCore("SendNotification", {
+			Title = "SH",
+			Text = "RELOAD!",
+			Duration = 1,
+		})
+	end)
+
+	-- Press R key
 	pcall(function()
 		if keypress and keyrelease then
 			keypress(0x52)
-			task.delay(0.05, function()
+			task.delay(0.08, function()
 				keyrelease(0x52)
 			end)
 		end
 	end)
 
-	-- Cooldown to prevent movement lock
-	task.delay(0.3, function()
+	task.delay(1, function()
 		State.IsReloading = false
 	end)
 end
@@ -118,10 +129,12 @@ local function AutoReloadWeapon()
 	local currentAmmo = GetCurrentAmmo()
 	if currentAmmo == nil then return end
 
+	State.LastAmmo = currentAmmo
+
 	if currentAmmo == 0 then
 		State.ReloadCooldown = true
 		SafeReload()
-		task.delay(2, function()
+		task.delay(2.5, function()
 			State.ReloadCooldown = false
 		end)
 	end
