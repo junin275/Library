@@ -155,19 +155,21 @@ local function AimAtTarget(target)
 	local part = target.Character:FindFirstChild(partName)
 	if not part then return end
 
-	local sp, _ = pcall(function()
+	local sp = pcall(function()
 		return Camera:WorldToViewportPoint(part.Position)
 	end)
 	if not sp then return end
 
-	local screenPos = Vector2.new(sp.X, sp.Y)
+	local viewportPoint = Camera:WorldToViewportPoint(part.Position)
+	local screenPos = Vector2.new(viewportPoint.X, viewportPoint.Y)
 	local screenCenter = Camera.ViewportSize / 2
-	local dir = (screenPos - screenCenter).Unit
-	local dist = (screenPos - screenCenter).Magnitude
+	local diff = screenPos - screenCenter
+	local dist = diff.Magnitude
 
 	if dist > 1 then
-		local moveX = dir.X * Config.AimSmoothness * dist
-		local moveY = dir.Y * Config.AimSmoothness * dist
+		local maxMove = 50
+		local moveX = math.clamp(diff.X * Config.AimSmoothness, -maxMove, maxMove)
+		local moveY = math.clamp(diff.Y * Config.AimSmoothness, -maxMove, maxMove)
 		mousemoverel(moveX, moveY)
 	end
 end
