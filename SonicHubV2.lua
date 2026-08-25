@@ -1,4 +1,4 @@
--- Shadow Hub V2 - Auto Reload (Mobile) Version
+-- Shadow Hub V2 - Auto Reload (Touch) Version
 local ShadowHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/junin275/Library/main/ShadowHubLibrary.lua"))()
 
 local Players = game:GetService("Players")
@@ -7,6 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
 local StarterGui = game:GetService("StarterGui")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
@@ -103,34 +104,31 @@ local function IsValidTarget(target)
 end
 
 -- ============================================
--- AUTO RELOAD (Mobile - Click ReloadButton)
+-- AUTO RELOAD (Touch Method)
 -- ============================================
 
 local function GetReloadButton()
 	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
 	if not playerGui then return nil end
-
 	local reactUI = playerGui:FindFirstChild("ReactUI")
 	if not reactUI then return nil end
-
 	local mobileUI = reactUI:FindFirstChild("MobileControlsUI")
 	if not mobileUI then return nil end
-
 	return mobileUI:FindFirstChild("ReloadButton")
 end
 
 local function GetCurrentAmmo()
 	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-	if not playerGui then return nil, nil end
+	if not playerGui then return nil end
 
-	local ammoLabel = playerGui:FindFirstChild("ReactUI")
+	local ammoUI = playerGui:FindFirstChild("ReactUI")
 		and playerGui.ReactUI:FindFirstChild("AmmoUI")
 		and playerGui.ReactUI.AmmoUI:FindFirstChild("AmmoLine")
 		and playerGui.ReactUI.AmmoLine:FindFirstChild("Text")
 		and playerGui.ReactUI.AmmoLine.Text:FindFirstChild("Main")
 
-	if ammoLabel then
-		local text = ammoLabel.Text
+	if ammoUI then
+		local text = ammoUI.Text
 		local current, max = text:match("(%d+)%s*|%s*(%d+)")
 		if current and max then
 			return tonumber(current), tonumber(max)
@@ -141,43 +139,62 @@ end
 
 local function ClickReloadButton()
 	local reloadBtn = GetReloadButton()
-	if reloadBtn then
-		-- Method 1: Fire Activated event
-		pcall(function()
-			reloadBtn.Activated:Fire()
-		end)
+	if not reloadBtn then return false end
 
-		-- Method 2: Simulate mouse click
-		pcall(function()
-			local VirtualInputManager = game:GetService("VirtualInputManager")
-			local gui = reloadBtn
-			local absPos = gui.AbsolutePosition
-			local absSize = gui.AbsoluteSize
-			local x = absPos.X + absSize.X / 2
-			local y = absPos.Y + absSize.Y / 2
+	-- Get button position and size
+	local absPos = reloadBtn.AbsolutePosition
+	local absSize = reloadBtn.AbsoluteSize
+	local centerX = absPos.X + absSize.X / 2
+	local centerY = absPos.Y + absSize.Y / 2
 
-			VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 1)
-			task.wait(0.05)
-			VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 1)
-		end)
+	-- Method 1: SendMouseButtonEvent (most reliable)
+	pcall(function()
+		VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
+		task.wait(0.05)
+		VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
+	end)
 
-		-- Method 3: Fire InputBegan on the button
-		pcall(function()
-			local inputService = game:GetService("UserInputService")
-			local gui = reloadBtn
-			local input = Instance.new("InputObject")
-			input.InputType = Enum.UserInputType.MouseButton1
-			input.Position = Vector2.new(0, 0)
-			input.UserInputState = Enum.UserInputState.Begin
-			gui.InputBegan:Fire(input)
-			task.wait(0.05)
-			input.UserInputState = Enum.UserInputState.End
-			gui.InputEnded:Fire(input)
-		end)
+	-- Method 2: SendTouchEvent (for mobile)
+	pcall(function()
+		VirtualInputManager:SendTouchEvent(centerX, centerY, 0, true, game)
+		task.wait(0.05)
+		VirtualInputManager:SendTouchEvent(centerX, centerY, 0, false, game)
+	end)
 
-		return true
-	end
-	return false
+	-- Method 3: Click via protocol (some executors)
+	pcall(function()
+		if syn and syn.click_button then
+			syn.click_button(centerX, centerY)
+		end
+	end)
+
+	-- Method 4: fireclickdetector if exists
+	pcall(function()
+		local clickDetector = reloadBtn:FindFirstChildOfClass("ClickDetector")
+		if clickDetector then
+			clickDetector:FireClick()
+		end
+	end)
+
+	-- Method 5: Direct Activated fire
+	pcall(function()
+		for _, connection in pairs(getconnections(reloadBtn.Activated)) do
+			connection:Fire()
+		end
+	end)
+
+	-- Method 6: Direct MouseButton1Down/Up
+	pcall(function()
+		for _, connection in pairs(getconnections(reloadBtn.MouseButton1Down)) do
+			connection:Fire()
+		end
+		task.wait(0.05)
+		for _, connection in pairs(getconnections(reloadBtn.MouseButton1Up)) do
+			connection:Fire()
+		end
+	end)
+
+	return true
 end
 
 local function AutoReloadWeapon()
@@ -189,8 +206,8 @@ local function AutoReloadWeapon()
 
 	if currentAmmo == 0 then
 		State.ReloadCooldown = true
-		ClickReloadButton()
-		task.delay(0.5, function()
+		local clicked = ClickReloadButton()
+		task.delay(0.8, function()
 			State.ReloadCooldown = false
 		end)
 		State.LastAmmo = currentAmmo
@@ -829,4 +846,4 @@ StarterGui:SetCore("SendNotification", {
 	Text = "Pronto!",
 	Duration = 2,
 })
-print("[SH] Ready with Auto Reload Mobile!")
+print("[SH] Ready with Auto Reload Touch!")
