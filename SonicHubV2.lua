@@ -1,4 +1,4 @@
--- Shadow Hub V2 - Auto Reload (Delta Safe) Version
+-- Shadow Hub V2 - Mobile Version
 local ShadowHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/junin275/Library/main/ShadowHubLibrary.lua"))()
 
 local Players = game:GetService("Players")
@@ -18,7 +18,7 @@ local Config = {
 	Noclip = false, Fullbright = false, SpeedBoost = false,
 	SpinBot = false, SpinSpeed = 30, SpinAngle = 0,
 	FOV = 70, HitSound = true, AimSmooth = 0.15,
-	AutoReload = true,
+	AutoReload = false,
 }
 
 local State = {
@@ -73,102 +73,7 @@ local function IsValidTarget(target)
 	return hum and root and hum.Health > 0
 end
 
--- AUTO RELOAD (Mobile Touch)
-local function GetCurrentAmmo()
-	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-	if not playerGui then return nil end
-	local reactUI = playerGui:FindFirstChild("ReactUI")
-	if not reactUI then return nil end
-	local ammoUI = reactUI:FindFirstChild("AmmoUI")
-	if not ammoUI then return nil end
-	local ammoLine = ammoUI:FindFirstChild("AmmoLine")
-	if not ammoLine then return nil end
-	local text = ammoLine:FindFirstChild("Text")
-	if not text then return nil end
-	local main = text:FindFirstChild("Main")
-	if not main then return nil end
-	local raw = main.Text
-	local current, max = raw:match("(%d+)%s*|%s*(%d+)")
-	if current and max then return tonumber(current), tonumber(max) end
-	return nil, nil
-end
-
-local function GetReloadButton()
-	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-	if not playerGui then return nil end
-	local reactUI = playerGui:FindFirstChild("ReactUI")
-	if not reactUI then return nil end
-	local mobileUI = reactUI:FindFirstChild("MobileControlsUI")
-	if not mobileUI then return nil end
-	return mobileUI:FindFirstChild("ReloadButton")
-end
-
-local function SafeReload()
-	if State.IsReloading then return end
-	State.IsReloading = true
-
-	pcall(function()
-		StarterGui:SetCore("SendNotification", {
-			Title = "SH",
-			Text = "RELOAD!",
-			Duration = 1,
-		})
-	end)
-
-	local reloadBtn = GetReloadButton()
-	if reloadBtn then
-		-- Method 1: Fire connections directly (no keypress needed)
-		pcall(function()
-			for _, conn in pairs(getconnections(reloadBtn.Activated)) do
-				conn:Fire()
-			end
-		end)
-
-		-- Method 2: Mouse click at button position
-		pcall(function()
-			local pos = reloadBtn.AbsolutePosition
-			local size = reloadBtn.AbsoluteSize
-			local x = pos.X + size.X / 2
-			local y = pos.Y + size.Y / 2
-			local vim = game:GetService("VirtualInputManager")
-			vim:SendMouseButtonEvent(x, y, 0, true, game, 1)
-			task.delay(0.05, function()
-				vim:SendMouseButtonEvent(x, y, 0, false, game, 1)
-			end)
-		end)
-
-		-- Method 3: GuiService select + activate
-		pcall(function()
-			local guiService = game:GetService("GuiService")
-			guiService.SelectedObject = reloadBtn
-			guiService:Select()
-			guiService.SelectedObject = nil
-		end)
-	end
-
-	task.delay(0.5, function()
-		State.IsReloading = false
-	end)
-end
-
-local function AutoReloadWeapon()
-	if not Config.AutoReload then return end
-	if State.ReloadCooldown then return end
-	if State.IsReloading then return end
-
-	local currentAmmo = GetCurrentAmmo()
-	if currentAmmo == nil then return end
-
-	State.LastAmmo = currentAmmo
-
-	if currentAmmo == 0 then
-		State.ReloadCooldown = true
-		SafeReload()
-		task.delay(2.5, function()
-			State.ReloadCooldown = false
-		end)
-	end
-end
+-- AUTO RELOAD REMOVED (Mobile incompatibility)
 
 -- AIMBOT
 local function FindTarget()
@@ -645,8 +550,6 @@ menu:Label(s1, "Mais alto = mais grude")
 menu:Slider(s1, "Distance", 50, 5000, 2000, function(v) Config.MaxDistance = v end)
 
 local s3 = menu:Section("UTIL")
-menu:Toggle(s3, "Auto Reload", true, function(v) Config.AutoReload = v end)
-menu:Label(s3, "Recarrega quando ammo=0")
 menu:Toggle(s3, "GPS", false, function(v) Config.MiniGPS = v GPSFrame.Visible = v end)
 menu:Toggle(s3, "Kill Notif", true, function(v) Config.KillNotify = v end)
 menu:Toggle(s3, "Hit Sound", true, function(v) Config.HitSound = v end)
@@ -678,8 +581,6 @@ RunService.RenderStepped:Connect(function(dt)
 	else
 		State.Target = nil
 	end
-
-	AutoReloadWeapon()
 
 	if Config.SpinBot then
 		local char = LocalPlayer.Character
@@ -720,4 +621,4 @@ StarterGui:SetCore("SendNotification", {
 	Text = "Pronto!",
 	Duration = 2,
 })
-print("[SH] Ready with Auto Reload Delta Safe!")
+print("[SH] Ready!")
