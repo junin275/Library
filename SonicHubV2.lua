@@ -1,4 +1,4 @@
--- Shadow Hub V2 - Auto Reload Weapons Version
+-- Shadow Hub V2 - Auto Reload Version
 local ShadowHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/junin275/Library/main/ShadowHubLibrary.lua"))()
 
 local Players = game:GetService("Players")
@@ -7,7 +7,6 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
 local StarterGui = game:GetService("StarterGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
@@ -46,6 +45,7 @@ local State = {
 	Kills = 0,
 	Streak = 0,
 	LastHP = {},
+	LastAmmo = -1,
 }
 
 -- ============================================
@@ -102,95 +102,82 @@ local function IsValidTarget(target)
 end
 
 -- ============================================
--- AUTO RELOAD WEAPONS
+-- AUTO RELOAD (Ammo Detection)
 -- ============================================
+
+local function GetCurrentAmmo()
+	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+	if not playerGui then return nil, nil end
+
+	local ammoLabel = playerGui:FindFirstChild("ReactUI")
+		and playerGui.ReactUI:FindFirstChild("AmmoUI")
+		and playerGui.ReactUI.AmmoUI:FindFirstChild("AmmoLine")
+		and playerGui.ReactUI.AmmoLine:FindFirstChild("Text")
+		and playerGui.ReactUI.AmmoLine.Text:FindFirstChild("Main")
+
+	if ammoLabel then
+		local text = ammoLabel.Text
+		-- Parse "[    0    |    5    ]"
+		local current, max = text:match("(%d+)%s*|%s*(%d+)")
+		if current and max then
+			return tonumber(current), tonumber(max)
+		end
+	end
+	return nil, nil
+end
 
 local function AutoReloadWeapon()
 	if not Config.AutoReload then return end
 
-	local char = LocalPlayer.Character
-	if not char then return end
+	local currentAmmo, maxAmmo = GetCurrentAmmo()
+	if currentAmmo == nil then return end
 
-	-- Find equipped tool
-	for _, tool in ipairs(char:GetChildren()) do
-		if tool:IsA("Tool") then
-			-- Try to find ammo value
-			local ammo = tool:FindFirstChild("Ammo") or tool:FindFirstChild("CurrentAmmo") or tool:FindFirstChild("ClipSize")
-			if ammo and ammo:IsA("ValueBase") then
-				if ammo.Value <= 0 then
-					-- Try to reload
-					-- Method 1: Fire remote event
-					pcall(function()
-						local reloadRemote = tool:FindFirstChild("Reload") or tool:FindFirstChild("reload")
-						if reloadRemote and reloadRemote:IsA("RemoteEvent") then
-							reloadRemote:FireServer()
-						end
-					end)
+	-- If ammo is 0, try to reload
+	if currentAmmo == 0 then
+		-- Method 1: Press R key
+		pcall(function()
+			local VirtualInputManager = game:GetService("VirtualInputManager")
+			VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game)
+			task.wait(0.1)
+			VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.R, false, game)
+		end)
 
-					-- Method 2: Try tool:Activate()
-					pcall(function()
+		-- Method 2: Try tool:Activate()
+		pcall(function()
+			local char = LocalPlayer.Character
+			if char then
+				for _, tool in ipairs(char:GetChildren()) do
+					if tool:IsA("Tool") then
 						tool:Activate()
-					end)
-
-					-- Method 3: Look for reload function in tool scripts
-					pcall(function()
-						for _, child in ipairs(tool:GetDescendants()) do
-							if child:IsA("RemoteEvent") and child.Name:lower():find("reload") then
-								child:FireServer()
-							end
-						end
-					end)
+					end
 				end
 			end
+		end)
 
-			-- Also check for武器-specific ammo patterns
-			pcall(function()
-				for _, value in ipairs(tool:GetDescendants()) do
-					if value:IsA("IntValue") or value:IsA("NumberValue") then
-						local name = value.Name:lower()
-						if name:find("ammo") or name:find("clip") or name:find("magazine") then
-							if value.Value <= 0 then
-								-- Find and fire reload remote
-								for _, remote in ipairs(tool:GetDescendants()) do
-									if remote:IsA("RemoteEvent") then
-										remote:FireServer()
-										break
-									end
-								end
+		-- Method 3: Fire any reload remote in tool
+		pcall(function()
+			local char = LocalPlayer.Character
+			if char then
+				for _, tool in ipairs(char:GetChildren()) do
+					if tool:IsA("Tool") then
+						for _, remote in ipairs(tool:GetDescendants()) do
+							if remote:IsA("RemoteEvent") and remote.Name:lower():find("reload") then
+								remote:FireServer()
 							end
 						end
 					end
 				end
-			end)
-		end
-	end
+			end
+		end)
 
-	-- Also check backpack
-	for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
-		if tool:IsA("Tool") then
-			pcall(function()
-				for _, value in ipairs(tool:GetDescendants()) do
-					if value:IsA("IntValue") or value:IsA("NumberValue") then
-						local name = value.Name:lower()
-						if name:find("ammo") or name:find("clip") then
-							if value.Value <= 0 then
-								for _, remote in ipairs(tool:GetDescendants()) do
-									if remote:IsA("RemoteEvent") then
-										remote:FireServer()
-										break
-									end
-								end
-							end
-						end
-					end
-				end
-			end)
-		end
+		State.LastAmmo = currentAmmo
+	elseif currentAmmo > 0 then
+		State.LastAmmo = currentAmmo
 	end
 end
 
 -- ============================================
--- AIMBOT (Smooth + Wall Check)
+-- AIMBOT
 -- ============================================
 
 local function FindTarget()
@@ -237,7 +224,7 @@ local function AimAtTarget(target)
 end
 
 -- ============================================
--- ESP (Classic)
+-- ESP
 -- ============================================
 
 local ESPGui = Instance.new("ScreenGui")
@@ -738,7 +725,7 @@ menu:Slider(s1, "Distance", 50, 5000, 2000, function(v) Config.MaxDistance = v e
 -- UTIL
 local s3 = menu:Section("UTIL")
 menu:Toggle(s3, "Auto Reload", true, function(v) Config.AutoReload = v end)
-menu:Label(s3, "Recarrega arma automatico")
+menu:Label(s3, "Recarrega quando ammo = 0")
 menu:Toggle(s3, "GPS", false, function(v) Config.MiniGPS = v GPSFrame.Visible = v end)
 menu:Toggle(s3, "Kill Notif", true, function(v) Config.KillNotify = v end)
 menu:Toggle(s3, "Hit Sound", true, function(v) Config.HitSound = v end)
@@ -764,7 +751,6 @@ local status = menu:StatusBar("K: 0 | S: 0")
 RunService.RenderStepped:Connect(function(dt)
 	UpdateAllESP()
 
-	-- AIMBOT
 	if Config.AimAssist then
 		local target = FindTarget()
 		if Config.TargetLock then
@@ -779,10 +765,8 @@ RunService.RenderStepped:Connect(function(dt)
 		State.Target = nil
 	end
 
-	-- AUTO RELOAD
 	AutoReloadWeapon()
 
-	-- SPIN BOT
 	if Config.SpinBot then
 		local char = LocalPlayer.Character
 		local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -792,7 +776,6 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 	end
 
-	-- GPS
 	if Config.MiniGPS then
 		GPSFrame.Visible = true
 		local myChar = LocalPlayer.Character
