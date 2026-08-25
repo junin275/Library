@@ -1,33 +1,26 @@
--- ============================================
--- SHADOW HUB - COLETOR MINI (MOBILE)
--- ============================================
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- GUI Mini
 local gui = Instance.new("ScreenGui")
-gui.Name = "AmmoMini"
+gui.Name = "AmmoPath"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 999
 gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- Botao flutuante
 local btn = Instance.new("TextButton")
 btn.Size = UDim2.new(0, 60, 0, 60)
 btn.Position = UDim2.new(0, 10, 0.5, -30)
 btn.BackgroundColor3 = Color3.fromRGB(180, 0, 255)
-btn.Text = "COLETAR"
+btn.Text = "PROCURAR"
 btn.TextColor3 = Color3.new(1, 1, 1)
 btn.Font = Enum.Font.GothamBold
-btn.TextSize = 10
+btn.TextSize = 9
 btn.Parent = gui
 Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
 
--- Status popup
 local popup = Instance.new("Frame")
-popup.Size = UDim2.new(0, 200, 0, 40)
+popup.Size = UDim2.new(0, 250, 0, 40)
 popup.Position = UDim2.new(0, 80, 0.5, -20)
 popup.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
 popup.BorderSizePixel = 0
@@ -44,79 +37,68 @@ popupText.TextColor3 = Color3.fromRGB(0, 255, 100)
 popupText.Font = Enum.Font.GothamBold
 popupText.TextSize = 12
 
--- Funcao coletar
 local function Collect()
     local r = {}
-    table.insert(r, "=== AMMO DATA ===")
+    table.insert(r, "=== AMMO PATH DATA ===")
     
-    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if playerGui then
-        -- Numeros na tela
-        for _, g in ipairs(playerGui:GetDescendants()) do
-            if g:IsA("TextLabel") or g:IsA("TextButton") then
-                local t = g.Text
-                if t:match("%d") and #t < 15 then
-                    table.insert(r, g.Name .. " = '" .. t .. "'")
+    local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+    
+    -- Find the "0 / 30" style ammo
+    table.insert(r, "")
+    table.insert(r, "--- AMMO (x / y) ---")
+    for _, g in ipairs(playerGui:GetDescendants()) do
+        if g:IsA("TextLabel") or g:IsA("TextButton") then
+            local t = g.Text
+            if t:match("%d+%s*/%s*%d+") then
+                table.insert(r, "FOUND: '" .. t .. "'")
+                table.insert(r, "  Name: " .. g.Name)
+                table.insert(r, "  Class: " .. g.ClassName)
+                table.insert(r, "  Path: " .. g:GetFullName())
+                table.insert(r, "  Visible: " .. tostring(g.Visible))
+                table.insert(r, "  Parent: " .. g.Parent:GetFullName())
+                
+                -- Check parent hierarchy
+                local p = g.Parent
+                for i = 1, 5 do
+                    if p and p.Parent then
+                        table.insert(r, "  Parent" .. i .. ": " .. p:GetFullName())
+                        p = p.Parent
+                    end
                 end
+                table.insert(r, "")
             end
         end
     end
     
-    -- Arma equipada
-    if LocalPlayer.Character then
-        for _, tool in ipairs(LocalPlayer.Character:GetChildren()) do
-            if tool:IsA("Tool") then
-                table.insert(r, "TOOL: " .. tool.Name)
-                for _, v in ipairs(tool:GetDescendants()) do
-                    if v:IsA("ValueBase") then
-                        table.insert(r, "  " .. v.Name .. " = " .. tostring(v.Value))
-                    end
-                    if v:IsA("RemoteEvent") then
-                        table.insert(r, "  Remote: " .. v.Name)
-                    end
-                end
+    -- Also find single numbers that could be ammo
+    table.insert(r, "--- SINGLE NUMBERS ---")
+    for _, g in ipairs(playerGui:GetDescendants()) do
+        if g:IsA("TextLabel") then
+            local t = g.Text
+            if t:match("^%d+$") and tonumber(t) and tonumber(t) <= 200 and tonumber(t) > 0 then
+                table.insert(r, g.Name .. " = '" .. t .. "' Path: " .. g:GetFullName())
             end
         end
     end
     
-    -- Backpack
-    local bp = LocalPlayer:FindFirstChild("Backpack")
-    if bp then
-        for _, tool in ipairs(bp:GetChildren()) do
-            if tool:IsA("Tool") then
-                table.insert(r, "BACKPACK: " .. tool.Name)
-                for _, v in ipairs(tool:GetDescendants()) do
-                    if v:IsA("ValueBase") then
-                        table.insert(r, "  " .. v.Name .. " = " .. tostring(v.Value))
-                    end
-                end
+    -- Weapon name in use
+    table.insert(r, "")
+    table.insert(r, "--- WEAPON IN USE ---")
+    for _, g in ipairs(playerGui:GetDescendants()) do
+        if g:IsA("TextLabel") then
+            local t = g.Text
+            if t:match("%[.-%]") then
+                table.insert(r, g.Name .. " = '" .. t .. "' Path: " .. g:GetFullName())
             end
         end
     end
     
-    -- ScreenGuis
-    if playerGui then
-        for _, sg in ipairs(playerGui:GetChildren()) do
-            if sg:IsA("ScreenGui") then
-                local n = sg.Name:lower()
-                if n:find("hud") or n:find("weapon") or n:find("stui") or n:find("client") then
-                    table.insert(r, "GUI: " .. sg.Name)
-                    for _, d in ipairs(sg:GetDescendants()) do
-                        if d:IsA("TextLabel") and d.Text ~= "" then
-                            table.insert(r, "  " .. d.Name .. " = '" .. d.Text .. "'")
-                        end
-                    end
-                end
-            end
-        end
-    end
+    table.insert(r, "")
+    table.insert(r, "=== FIM ===")
     
     local data = table.concat(r, "\n")
-    
     pcall(function()
-        if setclipboard then
-            setclipboard(data)
-        end
+        if setclipboard then setclipboard(data) end
     end)
     
     popup.Visible = true
@@ -127,5 +109,4 @@ local function Collect()
 end
 
 btn.MouseButton1Click:Connect(Collect)
-
-print("[SH] Ammo Mini aberto!")
+print("[SH] Ammo Path aberto!")
