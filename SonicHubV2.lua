@@ -146,30 +146,42 @@ local function IsValidTarget(target)
 	return hum and root and hum.Health > 0
 end
 
+-- ============================================
+-- AIMBOT (Camera CFrame style)
+-- ============================================
+
+local Aimbot = {
+	Active = false,
+	Smooth = 0.5,
+}
+
+-- Right mouse button = aim
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+		Aimbot.Active = true
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+		Aimbot.Active = false
+	end
+end)
+
 local function AimAtTarget(target)
 	if not target or not IsValidTarget(target) then return end
 	if Config.WallCheck and not HasLineOfSight(target) then return end
+	if not Aimbot.Active then return end
 
 	local partName = Config.AutoHeadshot and "Head" or Config.TargetPart
 	local part = target.Character:FindFirstChild(partName)
 	if not part then return end
 
-	local ok, vp = pcall(function()
-		return Camera:WorldToViewportPoint(part.Position)
-	end)
-	if not ok or not vp then return end
-	if not vp.Z or vp.Z <= 0 then return end
+	local camPos = Camera.CFrame.Position
+	local targetPos = part.Position
 
-	local screenCenter = Camera.ViewportSize / 2
-	local diff = Vector2.new(vp.X - screenCenter.X, vp.Y - screenCenter.Y)
-	local dist = diff.Magnitude
-
-	if dist > 1 then
-		local maxMove = 40
-		local moveX = math.clamp(diff.X * Config.AimSmoothness * 0.1, -maxMove, maxMove)
-		local moveY = math.clamp(diff.Y * Config.AimSmoothness * 0.1, -maxMove, maxMove)
-		mousemoverel(moveX, moveY)
-	end
+	-- Direct camera aim (like the reference script)
+	Camera.CFrame = CFrame.new(camPos, targetPos)
 end
 
 -- ============================================
@@ -849,12 +861,12 @@ menu:Toggle(s1, "  Name", true, function(v) Config.ESPName = v end)
 menu:Toggle(s1, "  Distance", true, function(v) Config.ESPDistance = v end)
 menu:Toggle(s1, "  Health", true, function(v) Config.ESPHealth = v end)
 menu:Toggle(s1, "Aim Assist", false, function(v) Config.AimAssist = v end)
+menu:Label(s1, "Segure Botao Direito = Mirar")
 menu:Toggle(s1, "Target Lock", false, function(v)
 	Config.TargetLock = v
 	if v then State.Target = FindTarget() else State.Target = nil end
 end)
 menu:Toggle(s1, "Auto Headshot", false, function(v) Config.AutoHeadshot = v end)
-menu:Slider(s1, "Aim Smoothness", 1, 20, 3, function(v) Config.AimSmoothness = v end)
 menu:Slider(s1, "Max Distance", 50, 5000, 2000, function(v) Config.MaxDistance = v end)
 
 -- CROSSHAIR
@@ -903,14 +915,14 @@ local status = menu:StatusBar("Kills: 0 | Streak: 0")
 RunService.RenderStepped:Connect(function(dt)
 	UpdateAllESP()
 
-	if Config.AimAssist then
+	if Config.AimAssist and Aimbot.Active then
 		if Config.TargetLock then
 			if not IsValidTarget(State.Target) then State.Target = FindTarget() end
 		else
 			State.Target = FindTarget()
 		end
 		AimAtTarget(State.Target)
-	else
+	elseif not Config.TargetLock then
 		State.Target = nil
 	end
 
