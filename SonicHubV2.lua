@@ -54,6 +54,39 @@ local State = {
 -- UTILITIES
 -- ============================================
 
+local function IsColorClose(a, b, tol)
+	tol = tol or 0.15
+	return math.abs(a.R - b.R) < tol and math.abs(a.G - b.G) < tol and math.abs(a.B - b.B) < tol
+end
+
+local function IsEnemy(player)
+	if Config.FFAMode then return true end
+	if player == LocalPlayer then return false end
+	local char = player.Character
+	if not char then return false end
+
+	-- Procura Highlight no character
+	for _, v in ipairs(char:GetDescendants()) do
+		if v:IsA("Highlight") and v.OutlineColor then
+			-- Vermelho = inimigo
+			if IsColorClose(v.OutlineColor, Color3.fromRGB(255, 0, 0), 0.3) then return true, Color3.fromRGB(255, 0, 0) end
+			-- Verde = aliado
+			if IsColorClose(v.OutlineColor, Color3.fromRGB(0, 255, 100), 0.3) then return false, Color3.fromRGB(0, 255, 100) end
+		end
+	end
+
+	-- Procura Highlight no Workspace adornee ao character
+	for _, v in ipairs(Workspace:GetDescendants()) do
+		if v:IsA("Highlight") and v.Adornee and (v.Adornee == char or v.Adornee:IsDescendantOf(char)) and v.OutlineColor then
+			if IsColorClose(v.OutlineColor, Color3.fromRGB(255, 0, 0), 0.3) then return true, Color3.fromRGB(255, 0, 0) end
+			if IsColorClose(v.OutlineColor, Color3.fromRGB(0, 255, 100), 0.3) then return false, Color3.fromRGB(0, 255, 100) end
+		end
+	end
+
+	-- Sem highlight = aliado (padrao seguro)
+	return false, nil
+end
+
 local function GetDistance(player)
 	local myChar = LocalPlayer.Character
 	local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -84,18 +117,21 @@ local function FindTarget()
 	local best, bestScore = nil, 0
 	for _, p in ipairs(Players:GetPlayers()) do
 		if p ~= LocalPlayer then
-			local char = p.Character
-			local hum = char and char:FindFirstChildOfClass("Humanoid")
-			local root = char and char:FindFirstChild("HumanoidRootPart")
-			if hum and root and hum.Health > 0 then
-				local dist = GetDistance(p)
-				if dist <= Config.MaxDistance then
-					local sp, onScreen = pcall(function() return Camera:WorldToViewportPoint(root.Position) end)
-					if sp and onScreen then
-						local score = (1 / math.max(dist, 1)) * 10
-						if score > bestScore then
-							best = p
-							bestScore = score
+			local isEnemy = IsEnemy(p)
+			if isEnemy then
+				local char = p.Character
+				local hum = char and char:FindFirstChildOfClass("Humanoid")
+				local root = char and char:FindFirstChild("HumanoidRootPart")
+				if hum and root and hum.Health > 0 then
+					local dist = GetDistance(p)
+					if dist <= Config.MaxDistance then
+						local sp, onScreen = pcall(function() return Camera:WorldToViewportPoint(root.Position) end)
+						if sp and onScreen then
+							local score = (1 / math.max(dist, 1)) * (onScreen and 10 or 1)
+							if score > bestScore then
+								best = p
+								bestScore = score
+							end
 						end
 					end
 				end
@@ -146,84 +182,121 @@ local function CreateESP(player)
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	if not head or not root or not hum then return end
 
-	-- BillboardGui (name, HP, distance)
+	-- Check if enemy
+	local isEnemy, teamColor = IsEnemy(player)
+	local espColor = teamColor or (isEnemy and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 200, 255))
+
+	-- BillboardGui
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "ESP_" .. player.Name
 	bb.Adornee = head
-	bb.Size = UDim2.new(0, 120, 0, 50)
-	bb.StudsOffset = Vector3.new(0, 2.5, 0)
+	bb.Size = UDim2.new(0, 140, 0, 55)
+	bb.StudsOffset = Vector3.new(0, 2.8, 0)
 	bb.AlwaysOnTop = true
 	bb.MaxDistance = Config.MaxDistance
 	bb.Parent = ESPFolder
 
+	-- Background card
+	local card = Instance.new("Frame", bb)
+	card.Size = UDim2.new(1, 0, 1, 0)
+	card.BackgroundColor3 = Color3.fromRGB(8, 8, 15)
+	card.BackgroundTransparency = 0.25
+	card.BorderSizePixel = 0
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 5)
+
+	-- Accent bar (left side)
+	local accentBar = Instance.new("Frame", card)
+	accentBar.Size = UDim2.new(0, 3, 1, 0)
+	accentBar.BackgroundColor3 = espColor
+	accentBar.BorderSizePixel = 0
+
 	-- Name
-	local nameLabel = Instance.new("TextLabel", bb)
-	nameLabel.Size = UDim2.new(1, 0, 0, 14)
-	nameLabel.Position = UDim2.new(0, 0, 0, 0)
+	local nameLabel = Instance.new("TextLabel", card)
+	nameLabel.Size = UDim2.new(1, -14, 0, 14)
+	nameLabel.Position = UDim2.new(0, 10, 0, 3)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Text = player.DisplayName
-	nameLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+	nameLabel.TextColor3 = espColor
 	nameLabel.TextStrokeTransparency = 0
 	nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.TextSize = 11
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 	-- Distance + HP
-	local infoLabel = Instance.new("TextLabel", bb)
-	infoLabel.Size = UDim2.new(1, 0, 0, 12)
-	infoLabel.Position = UDim2.new(0, 0, 0, 14)
+	local infoLabel = Instance.new("TextLabel", card)
+	infoLabel.Size = UDim2.new(1, -14, 0, 11)
+	infoLabel.Position = UDim2.new(0, 10, 0, 18)
 	infoLabel.BackgroundTransparency = 1
 	infoLabel.Text = "0m | 100HP"
-	infoLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
+	infoLabel.TextColor3 = Color3.fromRGB(180, 180, 195)
 	infoLabel.TextStrokeTransparency = 0
 	infoLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
 	infoLabel.Font = Enum.Font.Gotham
 	infoLabel.TextSize = 9
+	infoLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 	-- HP Bar background
-	local hpBG = Instance.new("Frame", bb)
-	hpBG.Size = UDim2.new(0.8, 0, 0, 4)
-	hpBG.Position = UDim2.new(0.1, 0, 0, 30)
-	hpBG.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+	local hpBG = Instance.new("Frame", card)
+	hpBG.Size = UDim2.new(0.85, 0, 0, 5)
+	hpBG.Position = UDim2.new(0.075, 0, 0, 33)
+	hpBG.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 	hpBG.BorderSizePixel = 0
-	Instance.new("UICorner", hpBG).CornerRadius = UDim.new(0, 2)
+	Instance.new("UICorner", hpBG).CornerRadius = UDim.new(0, 3)
 
 	-- HP Bar fill
 	local hpFill = Instance.new("Frame", hpBG)
 	hpFill.Size = UDim2.new(1, 0, 1, 0)
 	hpFill.BackgroundColor3 = Color3.fromRGB(50, 255, 100)
 	hpFill.BorderSizePixel = 0
-	Instance.new("UICorner", hpFill).CornerRadius = UDim.new(0, 2)
+	Instance.new("UICorner", hpFill).CornerRadius = UDim.new(0, 3)
 
-	-- Status
-	local statusLabel = Instance.new("TextLabel", bb)
-	statusLabel.Size = UDim2.new(1, 0, 0, 10)
-	statusLabel.Position = UDim2.new(0, 0, 0, 36)
+	-- HP bar glow
+	local hpGlow = Instance.new("Frame", hpBG)
+	hpGlow.Size = UDim2.new(1, 0, 1, 0)
+	hpGlow.BackgroundColor3 = espColor
+	hpGlow.BackgroundTransparency = 0.7
+	hpGlow.BorderSizePixel = 0
+	Instance.new("UICorner", hpGlow).CornerRadius = UDim.new(0, 3)
+
+	-- Status label
+	local statusLabel = Instance.new("TextLabel", card)
+	statusLabel.Size = UDim2.new(1, -14, 0, 8)
+	statusLabel.Position = UDim2.new(0, 10, 0, 40)
 	statusLabel.BackgroundTransparency = 1
 	statusLabel.Text = ""
 	statusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
 	statusLabel.TextStrokeTransparency = 0
 	statusLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
 	statusLabel.Font = Enum.Font.GothamBold
-	statusLabel.TextSize = 8
+	statusLabel.TextSize = 7
+	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-	-- Highlight (box around character)
+	-- Team indicator (small dot)
+	local teamDot = Instance.new("Frame", card)
+	teamDot.Size = UDim2.fromOffset(6, 6)
+	teamDot.Position = UDim2.new(1, -12, 0, 5)
+	teamDot.BackgroundColor3 = espColor
+	teamDot.BorderSizePixel = 0
+	Instance.new("UICorner", teamDot).CornerRadius = UDim.new(1, 0)
+
+	-- Highlight (box)
 	local hl = Instance.new("Highlight")
 	hl.Name = "ESP_HL_" .. player.Name
 	hl.Adornee = char
-	hl.FillColor = Color3.fromRGB(255, 0, 0)
-	hl.FillTransparency = 0.7
-	hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-	hl.OutlineTransparency = 0
+	hl.FillColor = espColor
+	hl.FillTransparency = 0.75
+	hl.OutlineColor = espColor
+	hl.OutlineTransparency = 0.2
 	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	hl.Parent = ESPFolder
 
-	-- Tracer line (from bottom center to player)
+	-- Tracer
 	local tracer = Instance.new("Frame", ESPFolder)
 	tracer.Name = "TR_" .. player.Name
 	tracer.AnchorPoint = Vector2.new(0.5, 0.5)
-	tracer.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-	tracer.BackgroundTransparency = 0.3
+	tracer.BackgroundColor3 = espColor
+	tracer.BackgroundTransparency = 0.35
 	tracer.BorderSizePixel = 0
 	tracer.Visible = false
 
@@ -232,7 +305,7 @@ local function CreateESP(player)
 	dot.Name = "DT_" .. player.Name
 	dot.AnchorPoint = Vector2.new(0.5, 0.5)
 	dot.Size = UDim2.fromOffset(6, 6)
-	dot.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+	dot.BackgroundColor3 = espColor
 	dot.BorderSizePixel = 0
 	dot.Visible = false
 	Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
@@ -246,6 +319,10 @@ local function CreateESP(player)
 		InfoLabel = infoLabel,
 		HPFill = hpFill,
 		StatusLabel = statusLabel,
+		TeamDot = teamDot,
+		AccentBar = accentBar,
+		EspColor = espColor,
+		IsEnemy = isEnemy,
 	}
 end
 
@@ -298,64 +375,60 @@ local function UpdateESP(player)
 		return
 	end
 
-	-- Create if missing
-	if not State.ESP[player] then
-		CreateESP(player)
-	end
+	-- Recreate if team changed
 	local data = State.ESP[player]
+	local isEnemy = IsEnemy(player)
+	if data and data.IsEnemy ~= isEnemy then
+		RemoveESP(player)
+		data = nil
+	end
+
+	if not data then
+		CreateESP(player)
+		data = State.ESP[player]
+	end
 	if not data then return end
 
-	-- Show
 	ShowESP(player)
 
 	-- Update highlight
 	pcall(function()
 		data.Highlight.Adornee = char
-		data.Highlight.FillColor = Config.FFAMode and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(255, 0, 0)
+		data.Highlight.FillColor = data.EspColor
+		data.Highlight.OutlineColor = data.EspColor
 	end)
 
-	-- Update billboard text
+	-- Update card
 	local hpPct = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
 	pcall(function()
-		data.NameLabel.Text = player.DisplayName
 		data.InfoLabel.Text = math.floor(dist) .. "m | " .. math.floor(hum.Health) .. "HP"
-
 		if hpPct > 0.6 then
-			data.InfoLabel.TextColor3 = Color3.fromRGB(80, 255, 80)
-			data.HPFill.BackgroundColor3 = Color3.fromRGB(80, 255, 80)
+			data.HPFill.BackgroundColor3 = Color3.fromRGB(50, 255, 100)
 		elseif hpPct > 0.3 then
-			data.InfoLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
 			data.HPFill.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
 		else
-			data.InfoLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
 			data.HPFill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 		end
-
 		data.HPFill.Size = UDim2.new(hpPct, 0, 1, 0)
-
-		if hpPct <= 0 then
-			data.StatusLabel.Text = "MORTO"
-		elseif hpPct < 0.3 then
-			data.StatusLabel.Text = "LOW HP"
-		else
-			data.StatusLabel.Text = ""
-		end
+		if hpPct <= 0 then data.StatusLabel.Text = "MORTO"
+		elseif hpPct < 0.3 then data.StatusLabel.Text = "LOW HP"
+		else data.StatusLabel.Text = "" end
 	end)
 
-	-- Tracer + Dot (on screen)
+	-- Tracer + Dot
 	pcall(function()
 		local sp, onScreen = Camera:WorldToViewportPoint(root.Position)
 		if onScreen and sp.Z > 0 then
-			local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-			local screenPos = Vector2.new(sp.X, sp.Y)
-			local diff = screenPos - screenCenter
-
-			data.Tracer.Position = UDim2.fromOffset((screenCenter.X + screenPos.X) / 2, (screenCenter.Y + screenPos.Y) / 2)
+			local sc = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+			local sp2 = Vector2.new(sp.X, sp.Y)
+			local diff = sp2 - sc
+			data.Tracer.Position = UDim2.fromOffset((sc.X + sp2.X) / 2, (sc.Y + sp2.Y) / 2)
 			data.Tracer.Size = UDim2.fromOffset(2, diff.Magnitude)
 			data.Tracer.Rotation = math.deg(math.atan2(diff.Y, diff.X)) + 90
+			data.Tracer.BackgroundColor3 = data.EspColor
 			data.Tracer.Visible = Config.ESPTracer
-
 			data.Dot.Position = UDim2.fromOffset(sp.X, sp.Y)
+			data.Dot.BackgroundColor3 = data.EspColor
 			data.Dot.Visible = Config.ESPDot
 		else
 			data.Tracer.Visible = false
