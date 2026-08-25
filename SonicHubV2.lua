@@ -1,4 +1,4 @@
--- Shadow Hub V2 - Mobile + PC Universal Version
+-- Shadow Hub V2 - Mobile + PC Smooth Version
 local ShadowHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/junin275/Library/main/ShadowHubLibrary.lua"))()
 
 local Players = game:GetService("Players")
@@ -35,6 +35,8 @@ local Config = {
 	SpinAngle = 0,
 	FOV = 70,
 	HitSound = true,
+	AimSmooth = 0.15,
+	AimFOV = 120,
 }
 
 local State = {
@@ -77,6 +79,19 @@ local function GetDistance(player)
 	return 9999
 end
 
+local function HasLineOfSight(target)
+	local myChar = LocalPlayer.Character
+	local tChar = target.Character
+	local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+	local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
+	if not myRoot or not tRoot then return false end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = {myChar, tChar}
+	local result = Workspace:Raycast(myRoot.Position, (tRoot.Position - myRoot.Position), params)
+	return result == nil
+end
+
 local function IsValidTarget(target)
 	if not target then return false end
 	local char = target.Character
@@ -85,7 +100,10 @@ local function IsValidTarget(target)
 	return hum and root and hum.Health > 0
 end
 
--- SIMPLE AIMBOT - always active when enabled
+-- ============================================
+-- AIMBOT (Smooth + Wall Check)
+-- ============================================
+
 local function FindTarget()
 	local best, bestDist = nil, math.huge
 	local myChar = LocalPlayer.Character
@@ -100,8 +118,13 @@ local function FindTarget()
 			if hum and root and hum.Health > 0 then
 				local dist = (myRoot.Position - root.Position).Magnitude
 				if dist < bestDist and dist <= Config.MaxDistance then
-					bestDist = dist
-					best = p
+					-- Wall Check: only target if visible
+					if Config.WallCheck and not HasLineOfSight(p) then
+						-- Skip if behind wall
+					else
+						bestDist = dist
+						best = p
+					end
 				end
 			end
 		end
@@ -117,12 +140,18 @@ local function AimAtTarget(target)
 	local part = target.Character:FindFirstChild(partName)
 	if not part then return end
 
-	-- Camera CFrame aim (works mobile + PC)
-	Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
+	local camPos = Camera.CFrame.Position
+	local targetPos = part.Position
+
+	-- Smooth aim (lerp) - the higher the value, the smoother/stickier
+	Camera.CFrame = Camera.CFrame:Lerp(
+		CFrame.new(camPos, targetPos),
+		Config.AimSmooth
+	)
 end
 
 -- ============================================
--- ESP (Classic - BillboardGui + Highlight)
+-- ESP (Classic)
 -- ============================================
 
 local ESPGui = Instance.new("ScreenGui")
@@ -432,6 +461,51 @@ local function UpdateAllESP()
 end
 
 -- ============================================
+-- GPS
+-- ============================================
+
+local GPSFrame = Instance.new("Frame")
+GPSFrame.Size = UDim2.new(0, 120, 0, 70)
+GPSFrame.Position = UDim2.new(1, -135, 0, 12)
+GPSFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+GPSFrame.BackgroundTransparency = 0.15
+GPSFrame.BorderSizePixel = 0
+GPSFrame.Visible = false
+GPSFrame.Parent = ESPGui
+Instance.new("UICorner", GPSFrame).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", GPSFrame).Color = Color3.fromRGB(180, 0, 255)
+
+local GPSArrow = Instance.new("TextLabel", GPSFrame)
+GPSArrow.Size = UDim2.new(1, 0, 0, 24)
+GPSArrow.Position = UDim2.new(0, 0, 0, 4)
+GPSArrow.BackgroundTransparency = 1
+GPSArrow.Text = "\226\136\128"
+GPSArrow.TextColor3 = Color3.fromRGB(50, 255, 100)
+GPSArrow.TextStrokeTransparency = 0
+GPSArrow.Font = Enum.Font.GothamBlack
+GPSArrow.TextSize = 20
+
+local GPSDist = Instance.new("TextLabel", GPSFrame)
+GPSDist.Size = UDim2.new(1, 0, 0, 14)
+GPSDist.Position = UDim2.new(0, 0, 0, 30)
+GPSDist.BackgroundTransparency = 1
+GPSDist.Text = "--"
+GPSDist.TextColor3 = Color3.fromRGB(180, 0, 255)
+GPSDist.TextStrokeTransparency = 0
+GPSDist.Font = Enum.Font.GothamBold
+GPSDist.TextSize = 10
+
+local GPSName = Instance.new("TextLabel", GPSFrame)
+GPSName.Size = UDim2.new(1, 0, 0, 12)
+GPSName.Position = UDim2.new(0, 0, 0, 46)
+GPSName.BackgroundTransparency = 1
+GPSName.Text = "procurando..."
+GPSName.TextColor3 = Color3.fromRGB(200, 200, 210)
+GPSName.TextStrokeTransparency = 0
+GPSName.Font = Enum.Font.Gotham
+GPSName.TextSize = 8
+
+-- ============================================
 -- EXPLOITS
 -- ============================================
 
@@ -580,12 +654,16 @@ menu:Toggle(s1, "Target Lock", false, function(v)
 	Config.TargetLock = v
 	if v then State.Target = FindTarget() else State.Target = nil end
 end)
+menu:Toggle(s1, "Wall Check", true, function(v) Config.WallCheck = v end)
+menu:Label(s1, "Nao mira atraves de parede")
 menu:Toggle(s1, "Auto Headshot", false, function(v) Config.AutoHeadshot = v end)
+menu:Slider(s1, "Smoothness", 1, 50, 15, function(v) Config.AimSmooth = v / 100 end)
+menu:Label(s1, "Mais alto = mais grude")
 menu:Slider(s1, "Distance", 50, 5000, 2000, function(v) Config.MaxDistance = v end)
 
 -- UTIL
 local s3 = menu:Section("UTIL")
-menu:Toggle(s3, "GPS", false, function(v) Config.MiniGPS = v end)
+menu:Toggle(s3, "GPS", false, function(v) Config.MiniGPS = v GPSFrame.Visible = v end)
 menu:Toggle(s3, "Kill Notif", true, function(v) Config.KillNotify = v end)
 menu:Toggle(s3, "Hit Sound", true, function(v) Config.HitSound = v end)
 menu:Toggle(s3, "FFA Mode", true, function(v) Config.FFAMode = v end)
@@ -632,6 +710,28 @@ RunService.RenderStepped:Connect(function(dt)
 			State.SpinAngle += Config.SpinSpeed * dt
 			root.CFrame = CFrame.new(root.Position) * CFrame.Angles(0, math.rad(State.SpinAngle), 0)
 		end
+	end
+
+	-- GPS
+	if Config.MiniGPS then
+		GPSFrame.Visible = true
+		local myChar = LocalPlayer.Character
+		local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+		local gpsTarget = State.Target or FindTarget()
+		if gpsTarget and myRoot then
+			local tRoot = gpsTarget.Character and gpsTarget.Character:FindFirstChild("HumanoidRootPart")
+			if tRoot then
+				local dist = (myRoot.Position - tRoot.Position).Magnitude
+				local dir = (tRoot.Position - myRoot.Position).Unit
+				local look = myRoot.CFrame.LookVector
+				local angle = math.atan2(dir.X * look.Z - dir.Z * look.X, dir.X * look.X + dir.Z * look.Z)
+				GPSArrow.Rotation = -math.deg(angle)
+				GPSDist.Text = math.floor(dist) .. "m"
+				GPSName.Text = gpsTarget.DisplayName
+			end
+		end
+	else
+		GPSFrame.Visible = false
 	end
 
 	pcall(function() Camera.FieldOfView = Config.FOV end)
