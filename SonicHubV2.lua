@@ -73,7 +73,7 @@ local function IsValidTarget(target)
 	return hum and root and hum.Health > 0
 end
 
--- AUTO RELOAD (Delta Safe)
+-- AUTO RELOAD (Mobile Touch)
 local function GetCurrentAmmo()
 	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
 	if not playerGui then return nil end
@@ -93,11 +93,20 @@ local function GetCurrentAmmo()
 	return nil, nil
 end
 
+local function GetReloadButton()
+	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+	if not playerGui then return nil end
+	local reactUI = playerGui:FindFirstChild("ReactUI")
+	if not reactUI then return nil end
+	local mobileUI = reactUI:FindFirstChild("MobileControlsUI")
+	if not mobileUI then return nil end
+	return mobileUI:FindFirstChild("ReloadButton")
+end
+
 local function SafeReload()
 	if State.IsReloading then return end
 	State.IsReloading = true
 
-	-- Show reload indicator
 	pcall(function()
 		StarterGui:SetCore("SendNotification", {
 			Title = "SH",
@@ -106,17 +115,38 @@ local function SafeReload()
 		})
 	end)
 
-	-- Press R key
-	pcall(function()
-		if keypress and keyrelease then
-			keypress(0x52)
-			task.delay(0.08, function()
-				keyrelease(0x52)
-			end)
-		end
-	end)
+	local reloadBtn = GetReloadButton()
+	if reloadBtn then
+		-- Method 1: Fire connections directly (no keypress needed)
+		pcall(function()
+			for _, conn in pairs(getconnections(reloadBtn.Activated)) do
+				conn:Fire()
+			end
+		end)
 
-	task.delay(1, function()
+		-- Method 2: Mouse click at button position
+		pcall(function()
+			local pos = reloadBtn.AbsolutePosition
+			local size = reloadBtn.AbsoluteSize
+			local x = pos.X + size.X / 2
+			local y = pos.Y + size.Y / 2
+			local vim = game:GetService("VirtualInputManager")
+			vim:SendMouseButtonEvent(x, y, 0, true, game, 1)
+			task.delay(0.05, function()
+				vim:SendMouseButtonEvent(x, y, 0, false, game, 1)
+			end)
+		end)
+
+		-- Method 3: GuiService select + activate
+		pcall(function()
+			local guiService = game:GetService("GuiService")
+			guiService.SelectedObject = reloadBtn
+			guiService:Select()
+			guiService.SelectedObject = nil
+		end)
+	end
+
+	task.delay(0.5, function()
 		State.IsReloading = false
 	end)
 end
