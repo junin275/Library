@@ -1,4 +1,4 @@
--- Shadow Hub V2 - Auto Reload (Touch) Version
+-- Shadow Hub V2 - Auto Reload (Delta Safe) Version
 local ShadowHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/junin275/Library/main/ShadowHubLibrary.lua"))()
 
 local Players = game:GetService("Players")
@@ -7,52 +7,24 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
 local StarterGui = game:GetService("StarterGui")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
--- ============================================
--- CONFIG
--- ============================================
-
 local Config = {
-	ESP = true,
-	ESPTracer = true,
-	ESPDot = true,
-	AimAssist = false,
-	TargetLock = false,
-	WallCheck = true,
-	FFAMode = true,
-	MaxDistance = 2000,
-	TargetPart = "HumanoidRootPart",
-	AutoHeadshot = false,
-	KillNotify = true,
-	MiniGPS = false,
-	Noclip = false,
-	Fullbright = false,
-	SpeedBoost = false,
-	SpinBot = false,
-	SpinSpeed = 30,
-	SpinAngle = 0,
-	FOV = 70,
-	HitSound = true,
-	AimSmooth = 0.15,
+	ESP = true, ESPTracer = true, ESPDot = true,
+	AimAssist = false, TargetLock = false, WallCheck = true,
+	FFAMode = true, MaxDistance = 2000, TargetPart = "HumanoidRootPart",
+	AutoHeadshot = false, KillNotify = true, MiniGPS = false,
+	Noclip = false, Fullbright = false, SpeedBoost = false,
+	SpinBot = false, SpinSpeed = 30, SpinAngle = 0,
+	FOV = 70, HitSound = true, AimSmooth = 0.15,
 	AutoReload = true,
 }
 
 local State = {
-	ESP = {},
-	Target = nil,
-	Kills = 0,
-	Streak = 0,
-	LastHP = {},
-	LastAmmo = -1,
-	ReloadCooldown = false,
+	ESP = {}, Target = nil, Kills = 0, Streak = 0,
+	LastHP = {}, LastAmmo = -1, ReloadCooldown = false, IsReloading = false,
 }
-
--- ============================================
--- UTILITIES
--- ============================================
 
 local function IsColorClose(a, b, tol)
 	tol = tol or 0.15
@@ -76,9 +48,7 @@ end
 local function GetDistance(player)
 	local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 	local tRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if myRoot and tRoot then
-		return (myRoot.Position - tRoot.Position).Magnitude
-	end
+	if myRoot and tRoot then return (myRoot.Position - tRoot.Position).Magnitude end
 	return 9999
 end
 
@@ -103,129 +73,66 @@ local function IsValidTarget(target)
 	return hum and root and hum.Health > 0
 end
 
--- ============================================
--- AUTO RELOAD (Touch Method)
--- ============================================
-
-local function GetReloadButton()
-	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-	if not playerGui then return nil end
-	local reactUI = playerGui:FindFirstChild("ReactUI")
-	if not reactUI then return nil end
-	local mobileUI = reactUI:FindFirstChild("MobileControlsUI")
-	if not mobileUI then return nil end
-	return mobileUI:FindFirstChild("ReloadButton")
-end
-
+-- AUTO RELOAD (Delta Safe - Uses Tool:Activate)
 local function GetCurrentAmmo()
 	local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
 	if not playerGui then return nil end
-
 	local ammoUI = playerGui:FindFirstChild("ReactUI")
 		and playerGui.ReactUI:FindFirstChild("AmmoUI")
 		and playerGui.ReactUI.AmmoUI:FindFirstChild("AmmoLine")
 		and playerGui.ReactUI.AmmoLine:FindFirstChild("Text")
 		and playerGui.ReactUI.AmmoLine.Text:FindFirstChild("Main")
-
 	if ammoUI then
 		local text = ammoUI.Text
 		local current, max = text:match("(%d+)%s*|%s*(%d+)")
-		if current and max then
-			return tonumber(current), tonumber(max)
-		end
+		if current and max then return tonumber(current), tonumber(max) end
 	end
 	return nil, nil
 end
 
-local function ClickReloadButton()
-	local reloadBtn = GetReloadButton()
-	if not reloadBtn then return false end
+local function SafeReload()
+	if State.IsReloading then return end
+	State.IsReloading = true
 
-	-- Get button position and size
-	local absPos = reloadBtn.AbsolutePosition
-	local absSize = reloadBtn.AbsoluteSize
-	local centerX = absPos.X + absSize.X / 2
-	local centerY = absPos.Y + absSize.Y / 2
-
-	-- Method 1: SendMouseButtonEvent (most reliable)
+	-- Only press R briefly, no long press
 	pcall(function()
-		VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
-		task.wait(0.05)
-		VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
-	end)
-
-	-- Method 2: SendTouchEvent (for mobile)
-	pcall(function()
-		VirtualInputManager:SendTouchEvent(centerX, centerY, 0, true, game)
-		task.wait(0.05)
-		VirtualInputManager:SendTouchEvent(centerX, centerY, 0, false, game)
-	end)
-
-	-- Method 3: Click via protocol (some executors)
-	pcall(function()
-		if syn and syn.click_button then
-			syn.click_button(centerX, centerY)
+		if keypress and keyrelease then
+			keypress(0x52)
+			task.delay(0.05, function()
+				keyrelease(0x52)
+			end)
 		end
 	end)
 
-	-- Method 4: fireclickdetector if exists
-	pcall(function()
-		local clickDetector = reloadBtn:FindFirstChildOfClass("ClickDetector")
-		if clickDetector then
-			clickDetector:FireClick()
-		end
+	-- Cooldown to prevent movement lock
+	task.delay(0.3, function()
+		State.IsReloading = false
 	end)
-
-	-- Method 5: Direct Activated fire
-	pcall(function()
-		for _, connection in pairs(getconnections(reloadBtn.Activated)) do
-			connection:Fire()
-		end
-	end)
-
-	-- Method 6: Direct MouseButton1Down/Up
-	pcall(function()
-		for _, connection in pairs(getconnections(reloadBtn.MouseButton1Down)) do
-			connection:Fire()
-		end
-		task.wait(0.05)
-		for _, connection in pairs(getconnections(reloadBtn.MouseButton1Up)) do
-			connection:Fire()
-		end
-	end)
-
-	return true
 end
 
 local function AutoReloadWeapon()
 	if not Config.AutoReload then return end
 	if State.ReloadCooldown then return end
+	if State.IsReloading then return end
 
-	local currentAmmo, maxAmmo = GetCurrentAmmo()
+	local currentAmmo = GetCurrentAmmo()
 	if currentAmmo == nil then return end
 
 	if currentAmmo == 0 then
 		State.ReloadCooldown = true
-		local clicked = ClickReloadButton()
-		task.delay(0.8, function()
+		SafeReload()
+		task.delay(2, function()
 			State.ReloadCooldown = false
 		end)
-		State.LastAmmo = currentAmmo
-	elseif currentAmmo > 0 then
-		State.LastAmmo = currentAmmo
 	end
 end
 
--- ============================================
 -- AIMBOT
--- ============================================
-
 local function FindTarget()
 	local best, bestDist = nil, math.huge
 	local myChar = LocalPlayer.Character
 	local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
 	if not myRoot then return nil end
-
 	for _, p in ipairs(Players:GetPlayers()) do
 		if p ~= LocalPlayer and IsEnemy(p) then
 			local char = p.Character
@@ -234,8 +141,7 @@ local function FindTarget()
 			if hum and root and hum.Health > 0 then
 				local dist = (myRoot.Position - root.Position).Magnitude
 				if dist < bestDist and dist <= Config.MaxDistance then
-					if Config.WallCheck and not HasLineOfSight(p) then
-					else
+					if not Config.WallCheck or HasLineOfSight(p) then
 						bestDist = dist
 						best = p
 					end
@@ -249,24 +155,13 @@ end
 local function AimAtTarget(target)
 	if not Config.AimAssist then return end
 	if not target or not IsValidTarget(target) then return end
-
 	local partName = Config.AutoHeadshot and "Head" or Config.TargetPart
 	local part = target.Character:FindFirstChild(partName)
 	if not part then return end
-
-	local camPos = Camera.CFrame.Position
-	local targetPos = part.Position
-
-	Camera.CFrame = Camera.CFrame:Lerp(
-		CFrame.new(camPos, targetPos),
-		Config.AimSmooth
-	)
+	Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, part.Position), Config.AimSmooth)
 end
 
--- ============================================
 -- ESP
--- ============================================
-
 local ESPGui = Instance.new("ScreenGui")
 ESPGui.Name = "E"
 ESPGui.ResetOnSpawn = false
@@ -448,21 +343,10 @@ local function CreateESP(player)
 	Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
 
 	State.ESP[player] = {
-		Frame = bb,
-		Highlight = hl,
-		Tracer = tracer,
-		Dot = dot,
-		NameLabel = nameLabel,
-		DistLabel = distLabel,
-		HPLabel = hpLabel,
-		HPFill = hpFill,
-		StatusLabel = statusLabel,
-		Pill = pill,
-		PillText = pillText,
-		Bar = bar,
-		EspColor = c,
-		EspColorBright = cB,
-		IsEnemy = isEnemy,
+		Frame = bb, Highlight = hl, Tracer = tracer, Dot = dot,
+		NameLabel = nameLabel, DistLabel = distLabel, HPLabel = hpLabel,
+		HPFill = hpFill, StatusLabel = statusLabel, Pill = pill,
+		PillText = pillText, Bar = bar, EspColor = c, EspColorBright = cB, IsEnemy = isEnemy,
 	}
 end
 
@@ -471,63 +355,40 @@ local function UpdateESP(player)
 	local char = player.Character
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	local root = char and char:FindFirstChild("HumanoidRootPart")
-	if not char or not hum or not root or hum.Health <= 0 then
-		RemoveESP(player)
-		return
-	end
+	if not char or not hum or not root or hum.Health <= 0 then RemoveESP(player) return end
 	local dist = GetDistance(player)
-	if dist > Config.MaxDistance then
-		HideESP(player)
-		return
-	end
+	if dist > Config.MaxDistance then HideESP(player) return end
 
 	local data = State.ESP[player]
 	local isEnemy = IsEnemy(player)
-	if data and data.IsEnemy ~= isEnemy then
-		RemoveESP(player)
-		data = nil
-	end
-	if not data then
-		CreateESP(player)
-		data = State.ESP[player]
-	end
+	if data and data.IsEnemy ~= isEnemy then RemoveESP(player) data = nil end
+	if not data then CreateESP(player) data = State.ESP[player] end
 	if not data then return end
 	ShowESP(player)
 
-	local c = data.EspColor
-	local cB = data.EspColorBright
-
 	pcall(function()
 		data.Highlight.Adornee = char
-		data.Highlight.FillColor = c
-		data.Highlight.OutlineColor = cB
-		data.Bar.BackgroundColor3 = c
-		data.Pill.BackgroundColor3 = c
-		data.PillText.TextColor3 = cB
+		data.Highlight.FillColor = data.EspColor
+		data.Highlight.OutlineColor = data.EspColorBright
+		data.Bar.BackgroundColor3 = data.EspColor
+		data.Pill.BackgroundColor3 = data.EspColor
+		data.PillText.TextColor3 = data.EspColorBright
 		data.PillText.Text = isEnemy and "ENEMY" or "ALLY"
-		data.Tracer.BackgroundColor3 = c
-		data.Dot.BackgroundColor3 = cB
+		data.Tracer.BackgroundColor3 = data.EspColor
+		data.Dot.BackgroundColor3 = data.EspColorBright
 	end)
 
 	local hpPct = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
 	pcall(function()
 		data.DistLabel.Text = math.floor(dist) .. "m"
 		data.HPLabel.Text = math.floor(hum.Health) .. " HP"
-		if hpPct > 0.6 then
-			data.HPFill.BackgroundColor3 = Color3.fromRGB(50, 255, 100)
-		elseif hpPct > 0.3 then
-			data.HPFill.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-		else
-			data.HPFill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-		end
+		if hpPct > 0.6 then data.HPFill.BackgroundColor3 = Color3.fromRGB(50, 255, 100)
+		elseif hpPct > 0.3 then data.HPFill.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+		else data.HPFill.BackgroundColor3 = Color3.fromRGB(255, 50, 50) end
 		data.HPFill.Size = UDim2.new(hpPct, 0, 1, 0)
-		if hpPct <= 0 then
-			data.StatusLabel.Text = "MORTO"
-		elseif hpPct < 0.3 then
-			data.StatusLabel.Text = "LOW HP"
-		else
-			data.StatusLabel.Text = ""
-		end
+		if hpPct <= 0 then data.StatusLabel.Text = "MORTO"
+		elseif hpPct < 0.3 then data.StatusLabel.Text = "LOW HP"
+		else data.StatusLabel.Text = "" end
 	end)
 
 	pcall(function()
@@ -550,21 +411,13 @@ local function UpdateESP(player)
 end
 
 local function UpdateAllESP()
-	if not Config.ESP then
-		for p in pairs(State.ESP) do RemoveESP(p) end
-		return
-	end
+	if not Config.ESP then for p in pairs(State.ESP) do RemoveESP(p) end return end
 	for _, p in ipairs(Players:GetPlayers()) do
-		if p ~= LocalPlayer then
-			UpdateESP(p)
-		end
+		if p ~= LocalPlayer then UpdateESP(p) end
 	end
 end
 
--- ============================================
 -- GPS
--- ============================================
-
 local GPSFrame = Instance.new("Frame")
 GPSFrame.Size = UDim2.new(0, 120, 0, 70)
 GPSFrame.Position = UDim2.new(1, -135, 0, 12)
@@ -606,18 +459,13 @@ GPSName.TextStrokeTransparency = 0
 GPSName.Font = Enum.Font.Gotham
 GPSName.TextSize = 8
 
--- ============================================
 -- EXPLOITS
--- ============================================
-
 RunService.Stepped:Connect(function()
 	if Config.Noclip then
 		local char = LocalPlayer.Character
 		if char then
 			for _, part in ipairs(char:GetDescendants()) do
-				if part:IsA("BasePart") then
-					part.CanCollide = false
-				end
+				if part:IsA("BasePart") then part.CanCollide = false end
 			end
 		end
 	end
@@ -667,10 +515,7 @@ local function TeleportToEnemy()
 	end
 end
 
--- ============================================
 -- PLAYER MONITOR
--- ============================================
-
 local function MonitorPlayer(player)
 	if player == LocalPlayer then return end
 	State.LastHP[player] = 100
@@ -696,9 +541,7 @@ local function MonitorPlayer(player)
 							game:GetService("Debris"):AddItem(s, 2)
 						end)
 					end
-					if Config.KillNotify then
-						ShadowHub:Notify("Kill", player.DisplayName, "kill", 3)
-					end
+					if Config.KillNotify then ShadowHub:Notify("Kill", player.DisplayName, "kill", 3) end
 					if State.Target == player then State.Target = nil end
 					if State.Streak == 3 then ShadowHub:Notify("Streak!", "3x", "streak", 3) end
 					if State.Streak == 5 then ShadowHub:Notify("Streak!", "5x", "streak", 3) end
@@ -735,13 +578,9 @@ Players.PlayerRemoving:Connect(function(p)
 	State.LastHP[p] = nil
 end)
 
--- ============================================
 -- BUILD MENU
--- ============================================
-
 local menu = ShadowHub:CreateWindow("SH")
 
--- COMBATE
 local s1 = menu:Section("COMBATE")
 menu:Toggle(s1, "ESP", true, function(v)
 	Config.ESP = v
@@ -762,17 +601,15 @@ menu:Slider(s1, "Smoothness", 1, 50, 15, function(v) Config.AimSmooth = v / 100 
 menu:Label(s1, "Mais alto = mais grude")
 menu:Slider(s1, "Distance", 50, 5000, 2000, function(v) Config.MaxDistance = v end)
 
--- UTIL
 local s3 = menu:Section("UTIL")
 menu:Toggle(s3, "Auto Reload", true, function(v) Config.AutoReload = v end)
-menu:Label(s3, "Clica no botao R quando ammo=0")
+menu:Label(s3, "Recarrega quando ammo=0")
 menu:Toggle(s3, "GPS", false, function(v) Config.MiniGPS = v GPSFrame.Visible = v end)
 menu:Toggle(s3, "Kill Notif", true, function(v) Config.KillNotify = v end)
 menu:Toggle(s3, "Hit Sound", true, function(v) Config.HitSound = v end)
 menu:Toggle(s3, "FFA Mode", true, function(v) Config.FFAMode = v end)
 menu:Button(s3, "Teleport", TeleportToEnemy)
 
--- EXPLOITS
 local s4 = menu:Section("EXPLOITS")
 menu:Toggle(s4, "Noclip", false, function(v) Config.Noclip = v end)
 menu:Toggle(s4, "Fullbright", false, function(v) SetFullbright(v) end)
@@ -781,22 +618,16 @@ menu:Toggle(s4, "Spin Bot", false, function(v) Config.SpinBot = v State.SpinAngl
 menu:Slider(s4, "Spin", 5, 120, 30, function(v) Config.SpinSpeed = v end)
 menu:Slider(s4, "FOV", 30, 120, 70, function(v) Config.FOV = v Camera.FieldOfView = v end)
 
--- STATUS
 local status = menu:StatusBar("K: 0 | S: 0")
 
--- ============================================
 -- MAIN LOOP
--- ============================================
-
 RunService.RenderStepped:Connect(function(dt)
 	UpdateAllESP()
 
 	if Config.AimAssist then
 		local target = FindTarget()
 		if Config.TargetLock then
-			if not IsValidTarget(State.Target) then
-				State.Target = target
-			end
+			if not IsValidTarget(State.Target) then State.Target = target end
 		else
 			State.Target = target
 		end
@@ -846,4 +677,4 @@ StarterGui:SetCore("SendNotification", {
 	Text = "Pronto!",
 	Duration = 2,
 })
-print("[SH] Ready with Auto Reload Touch!")
+print("[SH] Ready with Auto Reload Delta Safe!")
