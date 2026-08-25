@@ -1,5 +1,4 @@
--- Shadow Hub V2 - Main Script
--- Carrega a library do GitHub
+-- Shadow Hub V2 - Main Script v2
 local ShadowHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/junin275/Library/main/ShadowHubLibrary.lua"))()
 
 local Players = game:GetService("Players")
@@ -11,9 +10,15 @@ local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
--- Config
+-- ============================================
+-- CONFIG
+-- ============================================
+
 local Config = {
 	ESP = true,
+	ESPBox = true,
+	ESPTracer = true,
+	ESPDot = true,
 	AimAssist = false,
 	TargetLock = false,
 	WallCheck = true,
@@ -21,6 +26,7 @@ local Config = {
 	AimSmoothness = 0.08,
 	MaxDistance = 2000,
 	TargetPart = "Head",
+	AutoHeadshot = false,
 	KillNotify = true,
 	MiniGPS = false,
 	Crosshair = false,
@@ -30,24 +36,20 @@ local Config = {
 	CrossColor = Color3.fromRGB(255, 255, 255),
 	Noclip = false,
 	Fullbright = false,
-	FOV = 70,
 	SpeedBoost = false,
 	SpinBot = false,
 	SpinSpeed = 30,
+	SpinAngle = 0,
+	FOV = 70,
 	HitSound = true,
-	ESPBox = true,
-	ESPTracer = true,
-	ESPDot = true,
-	AutoHeadshot = false,
 }
 
 local State = {
-	Target = nil,
 	ESP = {},
+	Target = nil,
 	Kills = 0,
-	LastHP = {},
 	Streak = 0,
-	SpinAngle = 0,
+	LastHP = {},
 }
 
 -- ============================================
@@ -65,17 +67,13 @@ local function IsEnemy(player)
 	local char = player.Character
 	if not char then return false end
 
-	-- Procura Highlight no character
 	for _, v in ipairs(char:GetDescendants()) do
 		if v:IsA("Highlight") and v.OutlineColor then
-			-- Vermelho = inimigo
 			if IsColorClose(v.OutlineColor, Color3.fromRGB(255, 0, 0), 0.3) then return true, Color3.fromRGB(255, 0, 0) end
-			-- Verde = aliado
 			if IsColorClose(v.OutlineColor, Color3.fromRGB(0, 255, 100), 0.3) then return false, Color3.fromRGB(0, 255, 100) end
 		end
 	end
 
-	-- Procura Highlight no Workspace adornee ao character
 	for _, v in ipairs(Workspace:GetDescendants()) do
 		if v:IsA("Highlight") and v.Adornee and (v.Adornee == char or v.Adornee:IsDescendantOf(char)) and v.OutlineColor then
 			if IsColorClose(v.OutlineColor, Color3.fromRGB(255, 0, 0), 0.3) then return true, Color3.fromRGB(255, 0, 0) end
@@ -83,7 +81,6 @@ local function IsEnemy(player)
 		end
 	end
 
-	-- Sem highlight = aliado (padrao seguro)
 	return false, nil
 end
 
@@ -108,7 +105,6 @@ local function HasLineOfSight(target)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = {LocalPlayer.Character, target.Character}
-
 	local result = Workspace:Raycast(myRoot.Position, (tRoot.Position - myRoot.Position), params)
 	return result == nil
 end
@@ -125,7 +121,9 @@ local function FindTarget()
 				if hum and root and hum.Health > 0 then
 					local dist = GetDistance(p)
 					if dist <= Config.MaxDistance then
-						local sp, onScreen = pcall(function() return Camera:WorldToViewportPoint(root.Position) end)
+						local sp, onScreen = pcall(function()
+							return Camera:WorldToViewportPoint(root.Position)
+						end)
 						if sp and onScreen then
 							local score = (1 / math.max(dist, 1)) * (onScreen and 10 or 1)
 							if score > bestScore then
@@ -157,19 +155,59 @@ local function AimAtTarget(target)
 	local part = target.Character:FindFirstChild(partName)
 	if not part then return end
 
-	Camera.CFrame = Camera.CFrame:Lerp(
-		CFrame.lookAt(Camera.CFrame.Position, part.Position),
-		Config.AimSmoothness
-	)
+	local sp, _ = pcall(function()
+		return Camera:WorldToViewportPoint(part.Position)
+	end)
+	if not sp then return end
+
+	local screenPos = Vector2.new(sp.X, sp.Y)
+	local screenCenter = Camera.ViewportSize / 2
+	local dir = (screenPos - screenCenter).Unit
+	local dist = (screenPos - screenCenter).Magnitude
+
+	if dist > 1 then
+		local moveX = dir.X * Config.AimSmoothness * dist
+		local moveY = dir.Y * Config.AimSmoothness * dist
+		mousemoverel(moveX, moveY)
+	end
 end
 
 -- ============================================
--- ESP SYSTEM - SIMPLE & WORKING
+-- ESP
 -- ============================================
 
 local ESPFolder = Instance.new("Folder")
-ESPFolder.Name = "ShadowESP"
-ESPFolder.Parent = Workspace.CurrentCamera  -- KEY: Parent to CurrentCamera!
+ESPFolder.Name = "ESP_Folder"
+ESPFolder.Parent = Camera
+
+local function RemoveESP(player)
+	local data = State.ESP[player]
+	if data then
+		pcall(function() data.Billboard:Destroy() end)
+		pcall(function() data.Highlight:Destroy() end)
+		pcall(function() data.Tracer:Destroy() end)
+		pcall(function() data.Dot:Destroy() end)
+		State.ESP[player] = nil
+	end
+end
+
+local function HideESP(player)
+	local data = State.ESP[player]
+	if data then
+		data.Billboard.Enabled = false
+		data.Highlight.Enabled = false
+		data.Tracer.Visible = false
+		data.Dot.Visible = false
+	end
+end
+
+local function ShowESP(player)
+	local data = State.ESP[player]
+	if data then
+		data.Billboard.Enabled = true
+		data.Highlight.Enabled = true
+	end
+end
 
 local function CreateESP(player)
 	if player == LocalPlayer then return end
@@ -182,7 +220,6 @@ local function CreateESP(player)
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	if not head or not root or not hum then return end
 
-	-- Check if enemy
 	local isEnemy, teamColor = IsEnemy(player)
 	local espColor = teamColor or (isEnemy and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 200, 255))
 
@@ -196,11 +233,11 @@ local function CreateESP(player)
 	bb.MaxDistance = Config.MaxDistance
 	bb.Parent = ESPFolder
 
-	-- Background card
+	-- Card (transparent background)
 	local card = Instance.new("Frame", bb)
 	card.Size = UDim2.new(1, 0, 1, 0)
 	card.BackgroundColor3 = Color3.fromRGB(8, 8, 15)
-	card.BackgroundTransparency = 0.65
+	card.BackgroundTransparency = 0.7
 	card.BorderSizePixel = 0
 	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 5)
 
@@ -272,7 +309,7 @@ local function CreateESP(player)
 	statusLabel.TextSize = 7
 	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-	-- Team indicator (small dot)
+	-- Team dot
 	local teamDot = Instance.new("Frame", card)
 	teamDot.Size = UDim2.fromOffset(6, 6)
 	teamDot.Position = UDim2.new(1, -12, 0, 5)
@@ -324,37 +361,6 @@ local function CreateESP(player)
 		EspColor = espColor,
 		IsEnemy = isEnemy,
 	}
-end
-
-local function RemoveESP(player)
-	local data = State.ESP[player]
-	if data then
-		pcall(function() data.Billboard:Destroy() end)
-		pcall(function() data.Highlight:Destroy() end)
-		pcall(function() data.Tracer:Destroy() end)
-		pcall(function() data.Dot:Destroy() end)
-	end
-	State.ESP[player] = nil
-end
-
-local function HideESP(player)
-	local data = State.ESP[player]
-	if not data then return end
-	pcall(function()
-		data.Billboard.Enabled = false
-		data.Highlight.Enabled = false
-		data.Tracer.Visible = false
-		data.Dot.Visible = false
-	end)
-end
-
-local function ShowESP(player)
-	local data = State.ESP[player]
-	if not data then return end
-	pcall(function()
-		data.Billboard.Enabled = true
-		data.Highlight.Enabled = true
-	end)
 end
 
 local function UpdateESP(player)
@@ -410,9 +416,13 @@ local function UpdateESP(player)
 			data.HPFill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 		end
 		data.HPFill.Size = UDim2.new(hpPct, 0, 1, 0)
-		if hpPct <= 0 then data.StatusLabel.Text = "MORTO"
-		elseif hpPct < 0.3 then data.StatusLabel.Text = "LOW HP"
-		else data.StatusLabel.Text = "" end
+		if hpPct <= 0 then
+			data.StatusLabel.Text = "MORTO"
+		elseif hpPct < 0.3 then
+			data.StatusLabel.Text = "LOW HP"
+		else
+			data.StatusLabel.Text = ""
+		end
 	end)
 
 	-- Tracer + Dot
@@ -444,7 +454,7 @@ local function UpdateAllESP()
 	end
 	for _, p in ipairs(Players:GetPlayers()) do
 		if p ~= LocalPlayer then
-			task.spawn(UpdateESP, p)
+			UpdateESP(p)
 		end
 	end
 end
@@ -454,49 +464,40 @@ end
 -- ============================================
 
 local CrosshairFrame = Instance.new("Frame")
-CrosshairFrame.Size = UDim2.new(0, 30, 0, 30)
-CrosshairFrame.Position = UDim2.new(0.5, -15, 0.5, -15)
+CrosshairFrame.Size = UDim2.new(1, 0, 1, 0)
 CrosshairFrame.BackgroundTransparency = 1
+CrosshairFrame.BorderSizePixel = 0
 CrosshairFrame.Visible = false
 CrosshairFrame.Parent = ShadowHub:GetGui()
 
 local function UpdateCrosshairStyle()
-	for _, v in ipairs(CrosshairFrame:GetChildren()) do v:Destroy() end
-
-	local c = Config.CrossColor
-	local s = Config.CrossSize
-	local g = Config.CrossGap
-
-	if Config.CrossStyle == "Cross" or Config.CrossStyle == "Diamond" then
-		local top = Instance.new("Frame", CrosshairFrame)
-		top.Size = UDim2.new(0, 2, 0, s)
-		top.Position = UDim2.new(0.5, -1, 0.5, -(s + g))
-		top.BackgroundColor3 = c
-		top.BorderSizePixel = 0
-
-		local bot = Instance.new("Frame", CrosshairFrame)
-		bot.Size = UDim2.new(0, 2, 0, s)
-		bot.Position = UDim2.new(0.5, -1, 0.5, g)
-		bot.BackgroundColor3 = c
-		bot.BorderSizePixel = 0
-
-		local left = Instance.new("Frame", CrosshairFrame)
-		left.Size = UDim2.new(0, s, 0, 2)
-		left.Position = UDim2.new(0.5, -(s + g), 0.5, -1)
-		left.BackgroundColor3 = c
-		left.BorderSizePixel = 0
-
-		local right = Instance.new("Frame", CrosshairFrame)
-		right.Size = UDim2.new(0, s, 0, 2)
-		right.Position = UDim2.new(0.5, g, 0.5, -1)
-		right.BackgroundColor3 = c
-		right.BorderSizePixel = 0
+	for _, v in ipairs(CrosshairFrame:GetChildren()) do
+		v:Destroy()
 	end
 
-	if Config.CrossStyle == "Dot" or Config.CrossStyle == "Cross" then
+	local c = Config.CrossColor
+
+	if Config.CrossStyle == "Cross" then
+		local sz = Config.CrossSize
+		local gap = Config.CrossGap
+		for _, data in ipairs({
+			{UDim2.new(0.5, -gap - sz, 0.5, -1), UDim2.new(0, sz, 0, 2)},
+			{UDim2.new(0.5, gap, 0.5, -1), UDim2.new(0, sz, 0, 2)},
+			{UDim2.new(0.5, -1, 0.5, -gap - sz), UDim2.new(0, 2, 0, sz)},
+			{UDim2.new(0.5, -1, 0.5, gap), UDim2.new(0, 2, 0, sz)},
+		}) do
+			local f = Instance.new("Frame", CrosshairFrame)
+			f.Position = data[1]
+			f.Size = data[2]
+			f.BackgroundColor3 = c
+			f.BorderSizePixel = 0
+		end
+	end
+
+	if Config.CrossStyle == "Dot" then
 		local dot = Instance.new("Frame", CrosshairFrame)
-		dot.Size = UDim2.fromOffset(4, 4)
-		dot.Position = UDim2.new(0.5, -2, 0.5, -2)
+		dot.Size = UDim2.new(0, 6, 0, 6)
+		dot.Position = UDim2.new(0.5, -3, 0.5, -3)
 		dot.BackgroundColor3 = c
 		dot.BorderSizePixel = 0
 		Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
@@ -504,7 +505,7 @@ local function UpdateCrosshairStyle()
 
 	if Config.CrossStyle == "Circle" then
 		local circle = Instance.new("Frame", CrosshairFrame)
-		circle.Size = UDim2.fromOffset(16, 16)
+		circle.Size = UDim2.new(0, 16, 0, 16)
 		circle.Position = UDim2.new(0.5, -8, 0.5, -8)
 		circle.BackgroundTransparency = 1
 		circle.BorderSizePixel = 0
@@ -515,7 +516,7 @@ local function UpdateCrosshairStyle()
 
 	if Config.CrossStyle == "Diamond" then
 		local d = Instance.new("Frame", CrosshairFrame)
-		d.Size = UDim2.fromOffset(8, 8)
+		d.Size = UDim2.new(0, 8, 0, 8)
 		d.Position = UDim2.new(0.5, -4, 0.5, -4)
 		d.BackgroundColor3 = c
 		d.BorderSizePixel = 0
@@ -571,18 +572,8 @@ GPSName.TextStrokeTransparency = 0
 GPSName.Font = Enum.Font.Gotham
 GPSName.TextSize = 9
 
-local GPSStatus = Instance.new("TextLabel", GPSFrame)
-GPSStatus.Size = UDim2.new(1, 0, 0, 10)
-GPSStatus.Position = UDim2.new(0, 0, 0, 68)
-GPSStatus.BackgroundTransparency = 1
-GPSStatus.Text = ""
-GPSStatus.TextColor3 = Color3.fromRGB(140, 135, 165)
-GPSStatus.TextStrokeTransparency = 0
-GPSStatus.Font = Enum.Font.Gotham
-GPSStatus.TextSize = 8
-
 -- ============================================
--- LOGIC
+-- EXPLOITS
 -- ============================================
 
 local function SetNoclip(on)
@@ -621,7 +612,9 @@ local function SetSpeed(on)
 	Config.SpeedBoost = on
 	local char = LocalPlayer.Character
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if hum then hum.WalkSpeed = on and 32 or 16 end
+	if hum then
+		hum.WalkSpeed = on and 32 or 16
+	end
 end
 
 local function TeleportToEnemy()
@@ -636,10 +629,13 @@ local function TeleportToEnemy()
 			local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
 			local tHum = tChar and tChar:FindFirstChildOfClass("Humanoid")
 			if tRoot and tHum and tHum.Health > 0 then
-				local d = (root.Position - tRoot.Position).Magnitude
-				if d < Config.MaxDistance and (not bestDist or d < bestDist) then
-					best = p
-					bestDist = d
+				local isEnemy = IsEnemy(p)
+				if isEnemy then
+					local d = (root.Position - tRoot.Position).Magnitude
+					if d < Config.MaxDistance and (not bestDist or d < bestDist) then
+						best = p
+						bestDist = d
+					end
 				end
 			end
 		end
@@ -684,10 +680,18 @@ local function MonitorPlayer(player)
 						end)
 					end
 					ShadowHub:Notify("Kill", player.DisplayName, "kill", 3)
-					if State.Target == player then State.Target = nil end
-					if State.Streak == 3 then ShadowHub:Notify("Streak!", "3x STREAK!", "streak", 3) end
-					if State.Streak == 5 then ShadowHub:Notify("Streak!", "5x STREAK!", "streak", 3) end
-					if State.Streak == 10 then ShadowHub:Notify("Unstoppable!", "10x STREAK!", "streak", 4) end
+					if State.Target == player then
+						State.Target = nil
+					end
+					if State.Streak == 3 then
+						ShadowHub:Notify("Streak!", "3x STREAK!", "streak", 3)
+					end
+					if State.Streak == 5 then
+						ShadowHub:Notify("Streak!", "5x STREAK!", "streak", 3)
+					end
+					if State.Streak == 10 then
+						ShadowHub:Notify("Unstoppable!", "10x STREAK!", "streak", 4)
+					end
 				end
 			end
 
@@ -697,7 +701,9 @@ local function MonitorPlayer(player)
 		end)
 	end
 
-	if player.Character then task.spawn(onCharacter, player.Character) end
+	if player.Character then
+		task.spawn(onCharacter, player.Character)
+	end
 	player.CharacterAdded:Connect(function(char)
 		task.wait(0.5)
 		onCharacter(char)
@@ -706,7 +712,9 @@ local function MonitorPlayer(player)
 	end)
 end
 
-for _, p in ipairs(Players:GetPlayers()) do MonitorPlayer(p) end
+for _, p in ipairs(Players:GetPlayers()) do
+	MonitorPlayer(p)
+end
 Players.PlayerAdded:Connect(MonitorPlayer)
 
 LocalPlayer.CharacterAdded:Connect(function(char)
@@ -718,16 +726,22 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 			ShadowHub:Notify("Morte", "Voce morreu!", "error", 3)
 		end)
 	end
-	if Config.Noclip then SetNoclip(true) end
+	if Config.Noclip then
+		SetNoclip(true)
+	end
 	if Config.SpeedBoost then
 		local h = char:WaitForChild("Humanoid", 5)
-		if h then h.WalkSpeed = 32 end
+		if h then
+			h.WalkSpeed = 32
+		end
 	end
 end)
 
 Players.PlayerRemoving:Connect(function(p)
 	RemoveESP(p)
-	if State.Target == p then State.Target = nil end
+	if State.Target == p then
+		State.Target = nil
+	end
 	State.LastHP[p] = nil
 end)
 
@@ -739,19 +753,35 @@ local menu = ShadowHub:CreateWindow("Shadow Hub")
 
 -- COMBATE
 local s1 = menu:Section("Combate")
-menu:Toggle(s1, "ESP", true, function(v) Config.ESP = v if not v then for p in pairs(State.ESP) do RemoveESP(p) end end end)
+menu:Toggle(s1, "ESP", true, function(v)
+	Config.ESP = v
+	if not v then
+		for p in pairs(State.ESP) do RemoveESP(p) end
+	end
+end)
 menu:Toggle(s1, "  Box (Highlight)", true, function(v) Config.ESPBox = v end)
 menu:Toggle(s1, "  Tracer", true, function(v) Config.ESPTracer = v end)
 menu:Toggle(s1, "  Dot", true, function(v) Config.ESPDot = v end)
 menu:Toggle(s1, "Aim Assist", false, function(v) Config.AimAssist = v end)
-menu:Toggle(s1, "Target Lock", false, function(v) Config.TargetLock = v if v then State.Target = FindTarget() else State.Target = nil end end)
+menu:Toggle(s1, "Target Lock", false, function(v)
+	Config.TargetLock = v
+	if v then
+		State.Target = FindTarget()
+	else
+		State.Target = nil
+	end
+end)
 menu:Toggle(s1, "Auto Headshot", false, function(v) Config.AutoHeadshot = v end)
 menu:Slider(s1, "Aim Smoothness", 0.01, 0.5, 0.08, function(v) Config.AimSmoothness = v end)
 menu:Slider(s1, "Max Distance", 50, 5000, 2000, function(v) Config.MaxDistance = v end)
 
 -- CROSSHAIR
 local s2 = menu:Section("Crosshair")
-menu:Toggle(s2, "Crosshair", false, function(v) Config.Crosshair = v CrosshairFrame.Visible = v UpdateCrosshairStyle() end)
+menu:Toggle(s2, "Crosshair", false, function(v)
+	Config.Crosshair = v
+	CrosshairFrame.Visible = v
+	UpdateCrosshairStyle()
+end)
 menu:Button(s2, "Estilo: " .. Config.CrossStyle, function()
 	local styles = {"Cross", "Dot", "Circle", "Diamond"}
 	local idx = table.find(styles, Config.CrossStyle) or 1
@@ -760,12 +790,21 @@ menu:Button(s2, "Estilo: " .. Config.CrossStyle, function()
 	UpdateCrosshairStyle()
 	ShadowHub:Notify("Crosshair", "Estilo: " .. Config.CrossStyle, "info", 1.5)
 end)
-menu:Slider(s2, "Tamanho", 2, 15, 4, function(v) Config.CrossSize = v UpdateCrosshairStyle() end)
-menu:Slider(s2, "Gap", 1, 15, 3, function(v) Config.CrossGap = v UpdateCrosshairStyle() end)
+menu:Slider(s2, "Tamanho", 2, 15, 4, function(v)
+	Config.CrossSize = v
+	UpdateCrosshairStyle()
+end)
+menu:Slider(s2, "Gap", 1, 15, 3, function(v)
+	Config.CrossGap = v
+	UpdateCrosshairStyle()
+end)
 
 -- UTILIDADES
 local s3 = menu:Section("Utilidades")
-menu:Toggle(s3, "Mini GPS", false, function(v) Config.MiniGPS = v GPSFrame.Visible = v end)
+menu:Toggle(s3, "Mini GPS", false, function(v)
+	Config.MiniGPS = v
+	GPSFrame.Visible = v
+end)
 menu:Toggle(s3, "Kill Notification", true, function(v) Config.KillNotify = v end)
 menu:Toggle(s3, "Hit Sound", true, function(v) Config.HitSound = v end)
 menu:Toggle(s3, "FFA Mode", true, function(v) Config.FFAMode = v end)
@@ -777,9 +816,15 @@ local s4 = menu:Section("Exploits")
 menu:Toggle(s4, "Noclip", false, function(v) SetNoclip(v) end)
 menu:Toggle(s4, "Fullbright", false, function(v) SetFullbright(v) end)
 menu:Toggle(s4, "Speed Boost", false, function(v) SetSpeed(v) end)
-menu:Toggle(s4, "Spin Bot", false, function(v) Config.SpinBot = v State.SpinAngle = 0 end)
+menu:Toggle(s4, "Spin Bot", false, function(v)
+	Config.SpinBot = v
+	State.SpinAngle = 0
+end)
 menu:Slider(s4, "Spin Speed", 5, 120, 30, function(v) Config.SpinSpeed = v end)
-menu:Slider(s4, "FOV", 30, 120, 70, function(v) Config.FOV = v Camera.FieldOfView = v end)
+menu:Slider(s4, "FOV", 30, 120, 70, function(v)
+	Config.FOV = v
+	Camera.FieldOfView = v
+end)
 
 -- STATUS
 local status = menu:StatusBar("Kills: 0 | Streak: 0")
@@ -795,7 +840,9 @@ RunService.RenderStepped:Connect(function(dt)
 	-- Aim
 	if Config.AimAssist then
 		if Config.TargetLock then
-			if not IsValidTarget(State.Target) then State.Target = FindTarget() end
+			if not IsValidTarget(State.Target) then
+				State.Target = FindTarget()
+			end
 		else
 			State.Target = FindTarget()
 		end
@@ -848,9 +895,11 @@ end)
 -- DONE
 -- ============================================
 
-StarterGui:SetCore("SendNotification", {
-	Title = "SHADOW HUB V2",
-	Text = "Pronto! RightCtrl = menu",
-	Duration = 3,
-})
+pcall(function()
+	StarterGui:SetCore("SendNotification", {
+		Title = "SHADOW HUB V2",
+		Text = "Pronto! RightCtrl = menu",
+		Duration = 3,
+	})
+end)
 print("[SHADOW HUB V2] Pronto!")

@@ -1,5 +1,6 @@
---!strict
--- Shadow Hub UI Library v4.0 - Notification-style design
+-- Shadow Hub UI Library v5.0
+-- Clean, no-blocking, bug-free
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -13,6 +14,7 @@ local Theme = {
 	BG = Color3.fromRGB(10, 10, 18),
 	Panel = Color3.fromRGB(16, 16, 28),
 	Card = Color3.fromRGB(22, 22, 38),
+	Hover = Color3.fromRGB(30, 30, 50),
 	Accent = Color3.fromRGB(180, 0, 255),
 	AccentDim = Color3.fromRGB(100, 0, 160),
 	Text = Color3.fromRGB(235, 230, 250),
@@ -23,82 +25,100 @@ local Theme = {
 }
 ShadowHub.Theme = Theme
 
--- Notif container
-local NotifFolder = nil
+local NotifContainer = nil
 
-local function Notif(title, text, type_, dur)
-	if not NotifFolder then return end
+local function Notify(title, text, type_, dur)
+	if not NotifContainer then return end
 	dur = dur or 3
-	local cols = {info=Theme.Accent, success=Theme.Green, warning=Theme.Yellow, error=Theme.Red, kill=Color3.fromRGB(255,80,80), streak=Theme.Yellow}
+	local cols = {
+		info = Theme.Accent,
+		success = Theme.Green,
+		warning = Theme.Yellow,
+		error = Theme.Red,
+		kill = Color3.fromRGB(255, 80, 80),
+		streak = Theme.Yellow,
+	}
 	local col = cols[type_] or Theme.Accent
 
-	local f = Instance.new("Frame")
-	f.Size = UDim2.new(1,0,0,0)
-	f.BackgroundColor3 = Color3.fromRGB(12,12,22)
-	f.BorderSizePixel = 0
-	f.ClipsDescendants = true
-	f.LayoutOrder = -tick()
-	f.Parent = NotifFolder
-	Instance.new("UICorner", f).CornerRadius = UDim.new(0,8)
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, 0, 0, 0)
+	card.BackgroundColor3 = Color3.fromRGB(12, 12, 22)
+	card.BorderSizePixel = 0
+	card.ClipsDescendants = true
+	card.LayoutOrder = -tick()
+	card.Parent = NotifContainer
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
 
-	local bar = Instance.new("Frame", f)
-	bar.Size = UDim2.new(0,3,1,0)
+	local bar = Instance.new("Frame", card)
+	bar.Size = UDim2.new(0, 3, 1, 0)
 	bar.BackgroundColor3 = col
 	bar.BorderSizePixel = 0
 
-	local t1 = Instance.new("TextLabel", f)
-	t1.Size = UDim2.new(1,-14,0,13)
-	t1.Position = UDim2.new(0,12,0,7)
-	t1.BackgroundTransparency = 1
-	t1.Text = string.upper(title)
-	t1.TextColor3 = col
-	t1.Font = Enum.Font.GothamBold
-	t1.TextSize = 10
-	t1.TextXAlignment = Enum.TextXAlignment.Left
+	local tl = Instance.new("TextLabel", card)
+	tl.Size = UDim2.new(1, -14, 0, 13)
+	tl.Position = UDim2.new(0, 12, 0, 7)
+	tl.BackgroundTransparency = 1
+	tl.Text = string.upper(title)
+	tl.TextColor3 = col
+	tl.Font = Enum.Font.GothamBold
+	tl.TextSize = 10
+	tl.TextXAlignment = Enum.TextXAlignment.Left
 
-	local t2 = Instance.new("TextLabel", f)
-	t2.Size = UDim2.new(1,-14,0,28)
-	t2.Position = UDim2.new(0,12,0,23)
-	t2.BackgroundTransparency = 1
-	t2.Text = text
-	t2.TextColor3 = Theme.Text
-	t2.Font = Enum.Font.Gotham
-	t2.TextSize = 9
-	t2.TextXAlignment = Enum.TextXAlignment.Left
-	t2.TextWrapped = true
+	local tx = Instance.new("TextLabel", card)
+	tx.Size = UDim2.new(1, -14, 0, 28)
+	tx.Position = UDim2.new(0, 12, 0, 23)
+	tx.BackgroundTransparency = 1
+	tx.Text = text
+	tx.TextColor3 = Theme.Text
+	tx.Font = Enum.Font.Gotham
+	tx.TextSize = 9
+	tx.TextXAlignment = Enum.TextXAlignment.Left
+	tx.TextWrapped = true
 
-	-- Progress
-	local prog = Instance.new("Frame", f)
-	prog.Size = UDim2.new(1,0,0,2)
-	prog.Position = UDim2.new(0,0,1,-2)
+	local prog = Instance.new("Frame", card)
+	prog.Size = UDim2.new(1, 0, 0, 2)
+	prog.Position = UDim2.new(0, 0, 1, -2)
 	prog.BackgroundColor3 = col
 	prog.BackgroundTransparency = 0.4
 	prog.BorderSizePixel = 0
 
-	TweenService:Create(f, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(1,0,0,55)}):Play()
-	TweenService:Create(prog, TweenInfo.new(dur, Enum.EasingStyle.Linear), {Size = UDim2.new(0,0,0,2)}):Play()
+	TweenService:Create(card, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Size = UDim2.new(1, 0, 0, 55)
+	}):Play()
+	TweenService:Create(prog, TweenInfo.new(dur, Enum.EasingStyle.Linear), {
+		Size = UDim2.new(0, 0, 0, 2)
+	}):Play()
 
 	task.delay(dur, function()
-		TweenService:Create(f, TweenInfo.new(0.25), {Size = UDim2.new(1,0,0,0)}):Play()
+		TweenService:Create(card, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 0)}):Play()
 		task.wait(0.25)
-		pcall(function() f:Destroy() end)
+		pcall(function() card:Destroy() end)
 	end)
 end
 
-function ShadowHub:Notify(t, x, y, d) Notif(t, x, y, d) end
-function ShadowHub:GetGui() return self._gui end
-function ShadowHub:IsOpen() return self._open end
-function ShadowHub:IsDragging() return self._drag or false end
+function ShadowHub:Notify(t, x, y, d)
+	Notify(t, x, y, d)
+end
+
+function ShadowHub:GetGui()
+	return self._gui
+end
+
+function ShadowHub:IsOpen()
+	return self._open
+end
 
 function ShadowHub:CreateWindow(title, opts)
 	opts = opts or {}
 	local self = setmetatable({}, ShadowHub)
 	self._open = false
-	self._drag = false
+	self._dragging = false
+	self._dragStarted = false
 	self._n = 0
 	self._sections = {}
+	self._loaded = false
 
-	-- Gui
+	-- ScreenGui
 	self._gui = Instance.new("ScreenGui")
 	self._gui.Name = opts.Name or "ShadowHub"
 	self._gui.ResetOnSpawn = false
@@ -107,26 +127,31 @@ function ShadowHub:CreateWindow(title, opts)
 	self._gui.DisplayOrder = 999
 	self._gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-	-- Notif folder
-	NotifFolder = Instance.new("Frame")
-	NotifFolder.Size = UDim2.new(0,280,1,0)
-	NotifFolder.Position = UDim2.new(1,-295,0,10)
-	NotifFolder.BackgroundTransparency = 1
-	NotifFolder.BorderSizePixel = 0
-	NotifFolder.ZIndex = 200
-	NotifFolder.Parent = self._gui
-	local nl = Instance.new("UIListLayout", NotifFolder)
-	nl.Padding = UDim.new(0,5)
+	-- Notification container
+	NotifContainer = Instance.new("Frame")
+	NotifContainer.Size = UDim2.new(0, 280, 1, 0)
+	NotifContainer.Position = UDim2.new(1, -295, 0, 10)
+	NotifContainer.BackgroundTransparency = 1
+	NotifContainer.BorderSizePixel = 0
+	NotifContainer.ZIndex = 200
+	NotifContainer.Parent = self._gui
+	local nl = Instance.new("UIListLayout", NotifContainer)
+	nl.Padding = UDim.new(0, 5)
 	nl.SortOrder = Enum.SortOrder.LayoutOrder
 	nl.VerticalAlignment = Enum.VerticalAlignment.Top
 
-	-- Loading
-	self:_load(title)
+	-- Run loading async (non-blocking)
+	task.spawn(function()
+		self:_runLoading(title)
+		self._loaded = true
+	end)
 
-	-- Icon
+	-- Icon button
 	self._icon = Instance.new("TextButton")
-	self._icon.Size = UDim2.new(0,46,0,46)
-	self._icon.Position = UDim2.new(0,12,0.5,-23)
+	self._icon.Name = "HubIcon"
+	self._icon.Size = UDim2.new(0, 46, 0, 46)
+	self._icon.Position = UDim2.new(0, 12, 0.5, -23)
+	self._icon.AnchorPoint = Vector2.new(0, 0.5)
 	self._icon.BackgroundColor3 = Theme.Panel
 	self._icon.BorderSizePixel = 0
 	self._icon.Text = "SH"
@@ -134,453 +159,625 @@ function ShadowHub:CreateWindow(title, opts)
 	self._icon.Font = Enum.Font.GothamBlack
 	self._icon.TextSize = 14
 	self._icon.AutoButtonColor = false
-	self._icon.ZIndex = 100
+	self._icon.ZIndex = 150
 	self._icon.Parent = self._gui
-	Instance.new("UICorner", self._icon).CornerRadius = UDim.new(0,23)
-	local is = Instance.new("UIStroke", self._icon)
-	is.Color = Theme.Accent
-	is.Thickness = 1.5
-	is.Transparency = 0.5
+	Instance.new("UICorner", self._icon).CornerRadius = UDim.new(0, 23)
+	local icoStroke = Instance.new("UIStroke", self._icon)
+	icoStroke.Color = Theme.Accent
+	icoStroke.Thickness = 1.5
+	icoStroke.Transparency = 0.5
 
-	-- Main
+	-- Main frame
 	self._main = Instance.new("Frame")
-	self._main.Size = UDim2.new(0,300,0,0)
-	self._main.Position = UDim2.new(0,12,0.5,0)
-	self._main.AnchorPoint = Vector2.new(0,0.5)
+	self._main.Name = "HubMain"
+	self._main.Size = UDim2.new(0, 300, 0, 0)
+	self._main.Position = UDim2.new(0, 12, 0.5, 0)
+	self._main.AnchorPoint = Vector2.new(0, 0.5)
 	self._main.BackgroundColor3 = Theme.BG
 	self._main.BorderSizePixel = 0
 	self._main.ClipsDescendants = true
 	self._main.Visible = false
+	self._main.ZIndex = 100
 	self._main.Parent = self._gui
-	Instance.new("UICorner", self._main).CornerRadius = UDim.new(0,10)
-	Instance.new("UIStroke", self._main).Color = Theme.Accent
-	Instance.new("UIStroke", self._main).Thickness = 1.5
-	Instance.new("UIStroke", self._main).Transparency = 0.6
+	Instance.new("UICorner", self._main).CornerRadius = UDim.new(0, 10)
+	local mainStroke = Instance.new("UIStroke", self._main)
+	mainStroke.Color = Theme.Accent
+	mainStroke.Thickness = 1.5
+	mainStroke.Transparency = 0.6
 
 	-- TopBar
-	self._tb = Instance.new("Frame")
-	self._tb.Size = UDim2.new(1,0,0,36)
-	self._tb.BackgroundColor3 = Theme.Panel
-	self._tb.BorderSizePixel = 0
-	self._tb.Parent = self._main
-	Instance.new("UICorner", self._tb).CornerRadius = UDim.new(0,10)
+	self._topbar = Instance.new("Frame")
+	self._topbar.Name = "TopBar"
+	self._topbar.Size = UDim2.new(1, 0, 0, 36)
+	self._topbar.BackgroundColor3 = Theme.Panel
+	self._topbar.BorderSizePixel = 0
+	self._topbar.ZIndex = 101
+	self._topbar.Parent = self._main
+	Instance.new("UICorner", self._topbar).CornerRadius = UDim.new(0, 10)
 
-	-- Accent line under topbar
-	local al = Instance.new("Frame", self._tb)
-	al.Size = UDim2.new(1,0,0,1)
-	al.Position = UDim2.new(0,0,1,-1)
-	al.BackgroundColor3 = Theme.Accent
-	al.BackgroundTransparency = 0.6
-	al.BorderSizePixel = 0
+	-- Accent line
+	local accentLine = Instance.new("Frame", self._topbar)
+	accentLine.Size = UDim2.new(1, 0, 0, 1)
+	accentLine.Position = UDim2.new(0, 0, 1, -1)
+	accentLine.BackgroundColor3 = Theme.Accent
+	accentLine.BackgroundTransparency = 0.6
+	accentLine.BorderSizePixel = 0
+	accentLine.ZIndex = 102
 
-	local tl = Instance.new("TextLabel", self._tb)
-	tl.Size = UDim2.new(1,-40,1,0)
-	tl.Position = UDim2.new(0,10,0,0)
-	tl.BackgroundTransparency = 1
-	tl.Text = string.upper(title)
-	tl.TextColor3 = Theme.Accent
-	tl.Font = Enum.Font.GothamBlack
-	tl.TextSize = 11
-	tl.TextXAlignment = Enum.TextXAlignment.Left
+	-- Title
+	local titleLabel = Instance.new("TextLabel", self._topbar)
+	titleLabel.Size = UDim2.new(1, -40, 1, 0)
+	titleLabel.Position = UDim2.new(0, 10, 0, 0)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Text = string.upper(title)
+	titleLabel.TextColor3 = Theme.Accent
+	titleLabel.Font = Enum.Font.GothamBlack
+	titleLabel.TextSize = 11
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.ZIndex = 102
 
-	local cb = Instance.new("TextButton", self._tb)
-	cb.Size = UDim2.new(0,22,0,22)
-	cb.Position = UDim2.new(1,-30,0,7)
-	cb.BackgroundColor3 = Theme.Card
-	cb.BorderSizePixel = 0
-	cb.Text = "x"
-	cb.TextColor3 = Theme.Sub
-	cb.Font = Enum.Font.GothamBold
-	cb.TextSize = 11
-	cb.AutoButtonColor = false
-	Instance.new("UICorner", cb).CornerRadius = UDim.new(0,5)
-	cb.MouseButton1Click:Connect(function() self:Close() end)
-
-	-- Content
-	self._ct = Instance.new("ScrollingFrame")
-	self._ct.Size = UDim2.new(1,-10,1,-44)
-	self._ct.Position = UDim2.new(0,5,0,40)
-	self._ct.BackgroundTransparency = 1
-	self._ct.BorderSizePixel = 0
-	self._ct.ScrollBarThickness = 2
-	self._ct.ScrollBarImageColor3 = Theme.Accent
-	self._ct.CanvasSize = UDim2.new(0,0,0,0)
-	self._ct.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	self._ct.Parent = self._main
-	Instance.new("UIListLayout", self._ct).Padding = UDim.new(0,3)
-	Instance.new("UIListLayout", self._ct).SortOrder = Enum.SortOrder.LayoutOrder
-
-	-- Drag
-	self:_drag()
-
-	self._icon.MouseButton1Click:Connect(function()
-		if self._open then self:Close() else self:Open() end
+	-- Close button
+	local closeBtn = Instance.new("TextButton", self._topbar)
+	closeBtn.Size = UDim2.new(0, 22, 0, 22)
+	closeBtn.Position = UDim2.new(1, -30, 0, 7)
+	closeBtn.BackgroundColor3 = Theme.Card
+	closeBtn.BorderSizePixel = 0
+	closeBtn.Text = "x"
+	closeBtn.TextColor3 = Theme.Sub
+	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.TextSize = 11
+	closeBtn.AutoButtonColor = false
+	closeBtn.ZIndex = 102
+	Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 5)
+	closeBtn.MouseButton1Click:Connect(function()
+		self:Close()
 	end)
-	UserInputService.InputBegan:Connect(function(i,p)
-		if p then return end
-		if i.KeyCode == Enum.KeyCode.RightControl then
-			if self._open then self:Close() else self:Open() end
+
+	-- Content scroll
+	self._content = Instance.new("ScrollingFrame")
+	self._content.Name = "Content"
+	self._content.Size = UDim2.new(1, -10, 1, -44)
+	self._content.Position = UDim2.new(0, 5, 0, 40)
+	self._content.BackgroundTransparency = 1
+	self._content.BorderSizePixel = 0
+	self._content.ScrollBarThickness = 2
+	self._content.ScrollBarImageColor3 = Theme.Accent
+	self._content.CanvasSize = UDim2.new(0, 0, 0, 0)
+	self._content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	self._content.ZIndex = 101
+	self._content.Parent = self._main
+	local contentLayout = Instance.new("UIListLayout", self._content)
+	contentLayout.Padding = UDim.new(0, 3)
+	contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	Instance.new("UIPadding", self._content).PaddingBottom = UDim.new(0, 5)
+
+	-- Drag system (using UserInputService for proper release detection)
+	self:_initDrag()
+
+	-- Icon click (separate from drag)
+	self._icon.MouseButton1Click:Connect(function()
+		if self._open then
+			self:Close()
+		else
+			self:Open()
+		end
+	end)
+
+	-- Toggle with RightCtrl
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if processed then return end
+		if input.KeyCode == Enum.KeyCode.RightControl then
+			if self._open then
+				self:Close()
+			else
+				self:Open()
+			end
 		end
 	end)
 
 	return self
 end
 
-function ShadowHub:_load(title)
-	local f = Instance.new("Frame")
-	f.Size = UDim2.new(1,0,1,0)
-	f.BackgroundColor3 = Color3.fromRGB(3,3,6)
-	f.BorderSizePixel = 0
-	f.ZIndex = 1000
-	f.Parent = self._gui
+function ShadowHub:_runLoading(title)
+	local overlay = Instance.new("Frame")
+	overlay.Size = UDim2.new(1, 0, 1, 0)
+	overlay.BackgroundColor3 = Color3.fromRGB(3, 3, 6)
+	overlay.BorderSizePixel = 0
+	overlay.ZIndex = 500
+	overlay.Parent = self._gui
 
-	local t1 = Instance.new("TextLabel", f)
-	t1.Size = UDim2.new(0.8,0,0,36)
-	t1.Position = UDim2.new(0.1,0,0.34,0)
-	t1.BackgroundTransparency = 1
-	t1.Text = string.upper(title)
-	t1.TextColor3 = Theme.Accent
-	t1.TextStrokeTransparency = 0
-	t1.Font = Enum.Font.GothamBlack
-	t1.TextSize = 32
-	t1.ZIndex = 1001
+	local titleText = Instance.new("TextLabel", overlay)
+	titleText.Size = UDim2.new(0.8, 0, 0, 36)
+	titleText.Position = UDim2.new(0.1, 0, 0.34, 0)
+	titleText.BackgroundTransparency = 1
+	titleText.Text = string.upper(title)
+	titleText.TextColor3 = Theme.Accent
+	titleText.TextStrokeTransparency = 0
+	titleText.Font = Enum.Font.GothamBlack
+	titleText.TextSize = 32
+	titleText.ZIndex = 501
 
-	local t2 = Instance.new("TextLabel", f)
-	t2.Size = UDim2.new(0.8,0,0,18)
-	t2.Position = UDim2.new(0.1,0,0.42,0)
-	t2.BackgroundTransparency = 1
-	t2.Text = "Nao tem escapatoria\226\128\160\226\151\128\226\151\128"
-	t2.TextColor3 = Theme.Text
-	t2.TextStrokeTransparency = 0
-	t2.Font = Enum.Font.GothamMedium
-	t2.TextSize = 13
-	t2.ZIndex = 1001
+	local subText = Instance.new("TextLabel", overlay)
+	subText.Size = UDim2.new(0.8, 0, 0, 18)
+	subText.Position = UDim2.new(0.1, 0, 0.42, 0)
+	subText.BackgroundTransparency = 1
+	subText.Text = "Nao tem escapatoria \226\151\128\226\151\128"
+	subText.TextColor3 = Theme.Text
+	subText.TextStrokeTransparency = 0
+	subText.Font = Enum.Font.GothamMedium
+	subText.TextSize = 13
+	subText.ZIndex = 501
 
-	local bg = Instance.new("Frame", f)
-	bg.Size = UDim2.new(0.45,0,0,4)
-	bg.Position = UDim2.new(0.275,0,0.54,0)
-	bg.BackgroundColor3 = Theme.Panel
-	bg.BorderSizePixel = 0
-	bg.ZIndex = 1001
-	Instance.new("UICorner", bg).CornerRadius = UDim.new(0,2)
+	local barBG = Instance.new("Frame", overlay)
+	barBG.Size = UDim2.new(0.45, 0, 0, 4)
+	barBG.Position = UDim2.new(0.275, 0, 0.54, 0)
+	barBG.BackgroundColor3 = Theme.Panel
+	barBG.BorderSizePixel = 0
+	barBG.ZIndex = 501
+	Instance.new("UICorner", barBG).CornerRadius = UDim.new(0, 2)
 
-	local bf = Instance.new("Frame", bg)
-	bf.Size = UDim2.new(0,0,1,0)
-	bf.BackgroundColor3 = Theme.Accent
-	bf.BorderSizePixel = 0
-	bf.ZIndex = 1002
-	Instance.new("UICorner", bf).CornerRadius = UDim.new(0,2)
+	local barFill = Instance.new("Frame", barBG)
+	barFill.Size = UDim2.new(0, 0, 1, 0)
+	barFill.BackgroundColor3 = Theme.Accent
+	barFill.BorderSizePixel = 0
+	barFill.ZIndex = 502
+	Instance.new("UICorner", barFill).CornerRadius = UDim.new(0, 2)
 
-	local pct = Instance.new("TextLabel", f)
-	pct.Size = UDim2.new(0.45,0,0,14)
-	pct.Position = UDim2.new(0.275,0,0.59,0)
-	pct.BackgroundTransparency = 1
-	pct.Text = "0%"
-	pct.TextColor3 = Theme.Accent
-	pct.TextStrokeTransparency = 0
-	pct.Font = Enum.Font.GothamBold
-	pct.TextSize = 10
-	pct.ZIndex = 1001
+	local pctText = Instance.new("TextLabel", overlay)
+	pctText.Size = UDim2.new(0.45, 0, 0, 14)
+	pctText.Position = UDim2.new(0.275, 0, 0.59, 0)
+	pctText.BackgroundTransparency = 1
+	pctText.Text = "0%"
+	pctText.TextColor3 = Theme.Accent
+	pctText.TextStrokeTransparency = 0
+	pctText.Font = Enum.Font.GothamBold
+	pctText.TextSize = 10
+	pctText.ZIndex = 501
 
-	TweenService:Create(bf, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1,0,1,0)}):Play()
-	for i=1,20 do task.wait(1.5/20) pct.Text = math.floor(i*5).."%" end
-	task.wait(0.2)
-	for _,v in ipairs(f:GetDescendants()) do
-		if v:IsA("TextLabel") then TweenService:Create(v, TweenInfo.new(0.4), {TextTransparency=1, TextStrokeTransparency=1}):Play()
-		elseif v:IsA("Frame") then TweenService:Create(v, TweenInfo.new(0.4), {BackgroundTransparency=1}):Play() end
+	TweenService:Create(barFill, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = UDim2.new(1, 0, 1, 0)
+	}):Play()
+
+	for i = 1, 20 do
+		task.wait(1.5 / 20)
+		pctText.Text = math.floor(i * 5) .. "%"
 	end
-	TweenService:Create(f, TweenInfo.new(0.4), {BackgroundTransparency=1}):Play()
+
+	task.wait(0.2)
+
+	-- Fade out
+	for _, v in ipairs(overlay:GetDescendants()) do
+		if v:IsA("TextLabel") then
+			TweenService:Create(v, TweenInfo.new(0.4), {TextTransparency = 1, TextStrokeTransparency = 1}):Play()
+		elseif v:IsA("Frame") then
+			TweenService:Create(v, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
+		end
+	end
+	TweenService:Create(overlay, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
 	task.wait(0.5)
-	pcall(function() f:Destroy() end)
+	pcall(function() overlay:Destroy() end)
 end
 
-function ShadowHub:_drag()
-	local dragging, ds, so, off
-	self._topbar = self._tb
+function ShadowHub:_initDrag()
+	local dragging = false
+	local dragStart = nil
+	local startPos = nil
+	local hasDragged = false
 
-	self._tb.InputBegan:Connect(function(i)
-		if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-			dragging=true ds=i.Position so=self._main.Position off=Vector2.new(0,0) self._drag=false
+	self._topbar.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			hasDragged = false
+			dragStart = input.Position
+			startPos = self._main.Position
 		end
 	end)
-	self._tb.InputEnded:Connect(function(i)
-		if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-			dragging=false self._drag=false
+
+	-- Use UserInputService for release (works even if mouse leaves the topbar)
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+			hasDragged = false
 		end
 	end)
-	UserInputService.InputChanged:Connect(function(i)
-		if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
-			off=i.Position-ds
-			if off.Magnitude>8 then self._drag=true end
-			if self._drag then
-				self._main.Position = UDim2.new(so.X.Scale, so.X.Offset+off.X, so.Y.Scale, so.Y.Offset+off.Y)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStart
+			if delta.Magnitude > 8 then
+				hasDragged = true
+			end
+			if hasDragged then
+				self._main.Position = UDim2.new(
+					startPos.X.Scale,
+					startPos.X.Offset + delta.X,
+					startPos.Y.Scale,
+					startPos.Y.Offset + delta.Y
+				)
 			end
 		end
 	end)
+
+	-- Expose for sections/toggles to check
+	self.IsDragging = function()
+		return hasDragged
+	end
 end
 
 function ShadowHub:Open()
-	self._open=true self._main.Visible=true self._main.Size=UDim2.new(0,300,0,0)
-	TweenService:Create(self._main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size=UDim2.new(0,300,0,400)}):Play()
+	self._open = true
+	self._main.Visible = true
+	self._main.Size = UDim2.new(0, 300, 0, 0)
+	TweenService:Create(self._main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Size = UDim2.new(0, 300, 0, 420)
+	}):Play()
 end
 
 function ShadowHub:Close()
-	self._open=false
-	local t=TweenService:Create(self._main, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size=UDim2.new(0,300,0,0)})
-	t:Play() t.Completed:Connect(function() if not self._open then self._main.Visible=false end end)
+	self._open = false
+	local t = TweenService:Create(self._main, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		Size = UDim2.new(0, 300, 0, 0)
+	})
+	t:Play()
+	t.Completed:Connect(function()
+		if not self._open then
+			self._main.Visible = false
+		end
+	end)
 end
 
 function ShadowHub:Section(name)
-	self._n+=1 self._sections[name]=self._sections[name] or false
+	self._n += 1
+	self._sections[name] = self._sections[name] or false
 
-	-- Section header (notification style card)
-	local h = Instance.new("TextButton")
-	h.Size = UDim2.new(1,0,0,30)
-	h.BackgroundColor3 = Theme.Card
-	h.BorderSizePixel = 0
-	h.LayoutOrder = self._n
-	h.AutoButtonColor = false
-	h.Parent = self._ct
-	Instance.new("UICorner", h).CornerRadius = UDim.new(0,6)
+	local header = Instance.new("TextButton")
+	header.Size = UDim2.new(1, 0, 0, 30)
+	header.BackgroundColor3 = Theme.Card
+	header.BorderSizePixel = 0
+	header.LayoutOrder = self._n
+	header.AutoButtonColor = false
+	header.ZIndex = 102
+	header.Parent = self._content
+	Instance.new("UICorner", header).CornerRadius = UDim.new(0, 6)
 
-	-- Accent dot
-	local dot = Instance.new("Frame", h)
-	dot.Size = UDim2.new(0,3,0,14)
-	dot.Position = UDim2.new(0,8,0.5,-7)
-	dot.BackgroundColor3 = Theme.Accent
-	dot.BorderSizePixel = 0
-	Instance.new("UICorner", dot).CornerRadius = UDim.new(0,2)
+	local accentDot = Instance.new("Frame", header)
+	accentDot.Size = UDim2.new(0, 3, 0, 14)
+	accentDot.Position = UDim2.new(0, 8, 0.5, -7)
+	accentDot.BackgroundColor3 = Theme.Accent
+	accentDot.BorderSizePixel = 0
+	Instance.new("UICorner", accentDot).CornerRadius = UDim.new(0, 2)
 
-	local arrow = Instance.new("TextLabel", h)
-	arrow.Size = UDim2.new(0,16,1,0)
-	arrow.Position = UDim2.new(0,18,0,0)
+	local arrow = Instance.new("TextLabel", header)
+	arrow.Size = UDim2.new(0, 16, 1, 0)
+	arrow.Position = UDim2.new(0, 18, 0, 0)
 	arrow.BackgroundTransparency = 1
 	arrow.Text = self._sections[name] and "\226\150\160" or "\226\150\170"
 	arrow.TextColor3 = Theme.Accent
 	arrow.Font = Enum.Font.GothamBold
 	arrow.TextSize = 9
+	arrow.ZIndex = 103
 
-	local lbl = Instance.new("TextLabel", h)
-	lbl.Size = UDim2.new(1,-40,1,0)
-	lbl.Position = UDim2.new(0,34,0,0)
-	lbl.BackgroundTransparency = 1
-	lbl.Text = string.upper(name)
-	lbl.TextColor3 = Theme.Accent
-	lbl.Font = Enum.Font.GothamBold
-	lbl.TextSize = 9
-	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	local label = Instance.new("TextLabel", header)
+	label.Size = UDim2.new(1, -40, 1, 0)
+	label.Position = UDim2.new(0, 34, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Text = string.upper(name)
+	label.TextColor3 = Theme.Accent
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 9
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.ZIndex = 103
 
-	local ct = Instance.new("Frame")
-	ct.Size = UDim2.new(1,0,0,0)
-	ct.BackgroundTransparency = 1
-	ct.ClipsDescendants = true
-	ct.LayoutOrder = self._n+0.5
-	ct.Parent = self._ct
-	Instance.new("UIListLayout", ct).Padding = UDim.new(0,3)
-	Instance.new("UIListLayout", ct).SortOrder = Enum.SortOrder.LayoutOrder
+	local container = Instance.new("Frame")
+	container.Size = UDim2.new(1, 0, 0, 0)
+	container.BackgroundTransparency = 1
+	container.ClipsDescendants = true
+	container.LayoutOrder = self._n + 0.5
+	container.ZIndex = 102
+	container.Parent = self._content
+	local containerLayout = Instance.new("UIListLayout", container)
+	containerLayout.Padding = UDim.new(0, 3)
+	containerLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-	local sec = {_c=ct}
+	local sectionData = {_c = container, _name = name}
 
 	local function Refresh()
-		local lay = ct:FindFirstChildOfClass("UIListLayout")
-		if lay then lay:ApplyLayout() end
+		local lay = container:FindFirstChildOfClass("UIListLayout")
+		if lay then
+			-- Force layout recalc
+			local absH = lay.AbsoluteContentSize.Y
+		end
 		task.wait()
-		local th = self._sections[name] and (lay and lay.AbsoluteContentSize.Y or 0) or 0
+		local lay2 = container:FindFirstChildOfClass("UIListLayout")
+		local th = self._sections[name] and (lay2 and lay2.AbsoluteContentSize.Y or 0) or 0
 		arrow.Text = self._sections[name] and "\226\150\160" or "\226\150\170"
-		TweenService:Create(ct, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size=UDim2.new(1,0,0,th)}):Play()
+		TweenService:Create(container, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = UDim2.new(1, 0, 0, th)
+		}):Play()
 	end
 
-	h.MouseButton1Click:Connect(function()
-		if self._drag then return end
+	header.MouseButton1Click:Connect(function()
+		if self.IsDragging() then return end
 		self._sections[name] = not self._sections[name]
 		Refresh()
 	end)
 
+	-- Hover effect
+	header.MouseEnter:Connect(function()
+		if not self._sections[name] then
+			TweenService:Create(header, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Hover}):Play()
+		end
+	end)
+	header.MouseLeave:Connect(function()
+		TweenService:Create(header, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Card}):Play()
+	end)
+
 	Refresh()
-	return sec
+	return sectionData
 end
 
 function ShadowHub:Toggle(sec, name, def, cb)
-	self._n+=1
+	self._n += 1
 	local on = def
 
-	local h = Instance.new("Frame")
-	h.Size = UDim2.new(1,0,0,28)
-	h.BackgroundColor3 = Theme.Card
-	h.BorderSizePixel = 0
-	h.LayoutOrder = self._n
-	h.Parent = sec._c
-	Instance.new("UICorner", h).CornerRadius = UDim.new(0,5)
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, 0, 0, 28)
+	card.BackgroundColor3 = Theme.Card
+	card.BorderSizePixel = 0
+	card.LayoutOrder = self._n
+	card.ZIndex = 102
+	card.Parent = sec._c
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 5)
 
-	-- Small accent dot
-	local ad = Instance.new("Frame", h)
-	ad.Size = UDim2.new(0,2,0,10)
-	ad.Position = UDim2.new(0,6,0.5,-5)
-	ad.BackgroundColor3 = Theme.Accent
-	ad.BackgroundTransparency = on and 0 or 0.7
-	ad.BorderSizePixel = 0
-	Instance.new("UICorner", ad).CornerRadius = UDim.new(0,1)
+	local accentBar = Instance.new("Frame", card)
+	accentBar.Size = UDim2.new(0, 2, 0, 10)
+	accentBar.Position = UDim2.new(0, 6, 0.5, -5)
+	accentBar.BackgroundColor3 = Theme.Accent
+	accentBar.BackgroundTransparency = on and 0 or 0.7
+	accentBar.BorderSizePixel = 0
+	Instance.new("UICorner", accentBar).CornerRadius = UDim.new(0, 1)
 
-	local lbl = Instance.new("TextLabel", h)
-	lbl.Size = UDim2.new(1,-46,1,0)
-	lbl.Position = UDim2.new(0,16,0,0)
+	local lbl = Instance.new("TextLabel", card)
+	lbl.Size = UDim2.new(1, -46, 1, 0)
+	lbl.Position = UDim2.new(0, 16, 0, 0)
 	lbl.BackgroundTransparency = 1
 	lbl.Text = name
 	lbl.TextColor3 = Theme.Text
 	lbl.Font = Enum.Font.GothamMedium
 	lbl.TextSize = 9
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.ZIndex = 103
 
 	-- Toggle track
-	local bg = Instance.new("Frame", h)
-	bg.Size = UDim2.new(0,30,0,14)
-	bg.Position = UDim2.new(1,-38,0.5,-7)
-	bg.BackgroundColor3 = Theme.Panel
-	bg.BorderSizePixel = 0
-	Instance.new("UICorner", bg).CornerRadius = UDim.new(0,7)
+	local track = Instance.new("Frame", card)
+	track.Size = UDim2.new(0, 30, 0, 14)
+	track.Position = UDim2.new(1, -38, 0.5, -7)
+	track.BackgroundColor3 = Theme.Panel
+	track.BorderSizePixel = 0
+	track.ZIndex = 103
+	Instance.new("UICorner", track).CornerRadius = UDim.new(0, 7)
 
-	local kn = Instance.new("Frame", bg)
-	kn.Size = UDim2.new(0,10,0,10)
-	kn.Position = UDim2.new(0,2,0,2)
-	kn.BackgroundColor3 = Theme.Sub
-	kn.BorderSizePixel = 0
-	Instance.new("UICorner", kn).CornerRadius = UDim.new(0,5)
+	local knob = Instance.new("Frame", track)
+	knob.Size = UDim2.new(0, 10, 0, 10)
+	knob.Position = UDim2.new(0, 2, 0, 2)
+	knob.BackgroundColor3 = Theme.Sub
+	knob.BorderSizePixel = 0
+	knob.ZIndex = 104
+	Instance.new("UICorner", knob).CornerRadius = UDim.new(0, 5)
 
-	local function Ref()
-		kn.Position = on and UDim2.new(1,-12,0,2) or UDim2.new(0,2,0,2)
-		bg.BackgroundColor3 = on and Theme.Accent or Theme.Panel
-		kn.BackgroundColor3 = on and Color3.new(1,1,1) or Theme.Sub
-		ad.BackgroundTransparency = on and 0 or 0.7
+	local function Refresh()
+		TweenService:Create(knob, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = on and UDim2.new(1, -12, 0, 2) or UDim2.new(0, 2, 0, 2)
+		}):Play()
+		TweenService:Create(track, TweenInfo.new(0.2), {
+			BackgroundColor3 = on and Theme.Accent or Theme.Panel
+		}):Play()
+		knob.BackgroundColor3 = on and Color3.new(1, 1, 1) or Theme.Sub
+		accentBar.BackgroundTransparency = on and 0 or 0.7
 	end
 
-	h.InputBegan:Connect(function(i)
-		if self._drag then return end
-		if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-			on=not on cb(on) Ref()
-		end
+	-- Use MouseButton1Click on a transparent button overlay for reliable click
+	local clickBtn = Instance.new("TextButton", card)
+	clickBtn.Size = UDim2.new(1, 0, 1, 0)
+	clickBtn.BackgroundTransparency = 1
+	clickBtn.Text = ""
+	clickBtn.ZIndex = 105
+	clickBtn.AutoButtonColor = false
+
+	clickBtn.MouseButton1Click:Connect(function()
+		if self.IsDragging() then return end
+		on = not on
+		cb(on)
+		Refresh()
 	end)
 
-	Ref()
+	-- Hover
+	card.MouseEnter:Connect(function()
+		TweenService:Create(card, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Hover}):Play()
+	end)
+	card.MouseLeave:Connect(function()
+		TweenService:Create(card, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Card}):Play()
+	end)
+
+	Refresh()
 end
 
 function ShadowHub:Slider(sec, name, mn, mx, def, cb)
-	self._n+=1
+	self._n += 1
 	local V = def
 
-	local h = Instance.new("Frame")
-	h.Size = UDim2.new(1,0,0,38)
-	h.BackgroundColor3 = Theme.Card
-	h.BorderSizePixel = 0
-	h.LayoutOrder = self._n
-	h.Parent = sec._c
-	Instance.new("UICorner", h).CornerRadius = UDim.new(0,5)
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, 0, 0, 38)
+	card.BackgroundColor3 = Theme.Card
+	card.BorderSizePixel = 0
+	card.LayoutOrder = self._n
+	card.ZIndex = 102
+	card.Parent = sec._c
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 5)
 
-	local ad = Instance.new("Frame", h)
-	ad.Size = UDim2.new(0,2,0,10)
-	ad.Position = UDim2.new(0,6,0,6)
-	ad.BackgroundColor3 = Theme.Accent
-	ad.BorderSizePixel = 0
-	Instance.new("UICorner", ad).CornerRadius = UDim.new(0,1)
+	local accentBar = Instance.new("Frame", card)
+	accentBar.Size = UDim2.new(0, 2, 0, 10)
+	accentBar.Position = UDim2.new(0, 6, 0, 6)
+	accentBar.BackgroundColor3 = Theme.Accent
+	accentBar.BorderSizePixel = 0
+	Instance.new("UICorner", accentBar).CornerRadius = UDim.new(0, 1)
 
-	local lbl = Instance.new("TextLabel", h)
-	lbl.Size = UDim2.new(0.55,0,0,12)
-	lbl.Position = UDim2.new(0,16,0,5)
+	local lbl = Instance.new("TextLabel", card)
+	lbl.Size = UDim2.new(0.55, 0, 0, 12)
+	lbl.Position = UDim2.new(0, 16, 0, 5)
 	lbl.BackgroundTransparency = 1
 	lbl.Text = name
 	lbl.TextColor3 = Theme.Text
 	lbl.Font = Enum.Font.GothamMedium
 	lbl.TextSize = 9
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.ZIndex = 103
 
-	local vl = Instance.new("TextLabel", h)
-	vl.Size = UDim2.new(0.3,0,0,12)
-	vl.Position = UDim2.new(1,-36,5,0)
-	vl.BackgroundTransparency = 1
-	vl.Text = tostring(math.floor(V*10)/10)
-	vl.TextColor3 = Theme.Accent
-	vl.Font = Enum.Font.GothamBold
-	vl.TextSize = 9
-	vl.TextXAlignment = Enum.TextXAlignment.Right
+	local valLabel = Instance.new("TextLabel", card)
+	valLabel.Size = UDim2.new(0.3, 0, 0, 12)
+	valLabel.Position = UDim2.new(1, -36, 0, 5)
+	valLabel.BackgroundTransparency = 1
+	valLabel.Text = tostring(math.floor(V * 10) / 10)
+	valLabel.TextColor3 = Theme.Accent
+	valLabel.Font = Enum.Font.GothamBold
+	valLabel.TextSize = 9
+	valLabel.TextXAlignment = Enum.TextXAlignment.Right
+	valLabel.ZIndex = 103
 
-	local trk = Instance.new("Frame", h)
-	trk.Size = UDim2.new(1,-22,0,3)
-	trk.Position = UDim2.new(0,11,0,24)
-	trk.BackgroundColor3 = Theme.Panel
-	trk.BorderSizePixel = 0
-	Instance.new("UICorner", trk).CornerRadius = UDim.new(0,2)
+	local track = Instance.new("Frame", card)
+	track.Size = UDim2.new(1, -22, 0, 3)
+	track.Position = UDim2.new(0, 11, 0, 24)
+	track.BackgroundColor3 = Theme.Panel
+	track.BorderSizePixel = 0
+	track.ZIndex = 103
+	Instance.new("UICorner", track).CornerRadius = UDim.new(0, 2)
 
-	local fl = Instance.new("Frame", trk)
-	fl.Size = UDim2.new((V-mn)/(mx-mn),0,1,0)
-	fl.BackgroundColor3 = Theme.Accent
-	fl.BorderSizePixel = 0
-	Instance.new("UICorner", fl).CornerRadius = UDim.new(0,2)
+	local fill = Instance.new("Frame", track)
+	fill.Size = UDim2.new((V - mn) / (mx - mn), 0, 1, 0)
+	fill.BackgroundColor3 = Theme.Accent
+	fill.BorderSizePixel = 0
+	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 2)
 
-	local kn = Instance.new("Frame", trk)
-	kn.Size = UDim2.new(0,9,0,9)
-	kn.Position = UDim2.new((V-mn)/(mx-mn),-5,0.5,-5)
-	kn.BackgroundColor3 = Color3.new(1,1,1)
-	kn.BorderSizePixel = 0
-	kn.ZIndex = 5
-	Instance.new("UICorner", kn).CornerRadius = UDim.new(0,5)
+	local knob = Instance.new("Frame", track)
+	knob.Size = UDim2.new(0, 9, 0, 9)
+	knob.Position = UDim2.new((V - mn) / (mx - mn), -5, 0.5, -5)
+	knob.BackgroundColor3 = Color3.new(1, 1, 1)
+	knob.BorderSizePixel = 0
+	knob.ZIndex = 105
+	Instance.new("UICorner", knob).CornerRadius = UDim.new(0, 5)
 
 	local sliding = false
-	local function Upd(x)
-		local p = math.clamp((x-trk.AbsolutePosition.X)/trk.AbsoluteSize.X,0,1)
-		V=mn+p*(mx-mn) fl.Size=UDim2.new(p,0,1,0)
-		kn.Position=UDim2.new(p,-5,0.5,-5)
-		vl.Text=tostring(math.floor(V*10)/10) cb(V)
+
+	local function UpdateSlider(x)
+		local p = math.clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+		V = mn + p * (mx - mn)
+		fill.Size = UDim2.new(p, 0, 1, 0)
+		knob.Position = UDim2.new(p, -5, 0.5, -5)
+		valLabel.Text = tostring(math.floor(V * 10) / 10)
+		cb(V)
 	end
 
-	kn.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then sliding=true Upd(i.Position.X) end end)
-	trk.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then sliding=true Upd(i.Position.X) end end)
-	UserInputService.InputChanged:Connect(function(i) if sliding and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then Upd(i.Position.X) end end)
-	UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then sliding=false end end)
+	knob.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			sliding = true
+			UpdateSlider(input.Position.X)
+		end
+	end)
+	track.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			sliding = true
+			UpdateSlider(input.Position.X)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if sliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			UpdateSlider(input.Position.X)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			sliding = false
+		end
+	end)
+
+	-- Hover
+	card.MouseEnter:Connect(function()
+		TweenService:Create(card, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Hover}):Play()
+	end)
+	card.MouseLeave:Connect(function()
+		TweenService:Create(card, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Card}):Play()
+	end)
 end
 
 function ShadowHub:Button(sec, name, cb)
-	self._n+=1
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.new(1,0,0,28)
-	b.BackgroundColor3 = Theme.Accent
-	b.BorderSizePixel = 0
-	b.Text = string.upper(name)
-	b.TextColor3 = Color3.new(0,0,0)
-	b.Font = Enum.Font.GothamBold
-	b.TextSize = 9
-	b.AutoButtonColor = false
-	b.LayoutOrder = self._n
-	b.Parent = sec._c
-	Instance.new("UICorner", b).CornerRadius = UDim.new(0,5)
-	b.MouseButton1Click:Connect(function() if self._drag then return end cb() end)
+	self._n += 1
+
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, 0, 0, 28)
+	btn.BackgroundColor3 = Theme.Accent
+	btn.BorderSizePixel = 0
+	btn.Text = string.upper(name)
+	btn.TextColor3 = Color3.new(0, 0, 0)
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 9
+	btn.AutoButtonColor = false
+	btn.LayoutOrder = self._n
+	btn.ZIndex = 102
+	btn.Parent = sec._c
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
+
+	btn.MouseButton1Click:Connect(function()
+		if self.IsDragging() then return end
+		-- Press effect
+		TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Theme.AccentDim}):Play()
+		task.delay(0.1, function()
+			TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Accent}):Play()
+		end)
+		cb()
+	end)
+
+	btn.MouseEnter:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(200, 20, 255)}):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Accent}):Play()
+	end)
 end
 
 function ShadowHub:Label(sec, text)
-	self._n+=1
+	self._n += 1
 	local l = Instance.new("TextLabel", sec._c)
-	l.Size = UDim2.new(1,0,0,12)
+	l.Size = UDim2.new(1, 0, 0, 12)
 	l.BackgroundTransparency = 1
-	l.Text = "  "..text
+	l.Text = "  " .. text
 	l.TextColor3 = Theme.Sub
 	l.Font = Enum.Font.GothamMedium
 	l.TextSize = 7
 	l.TextXAlignment = Enum.TextXAlignment.Left
 	l.LayoutOrder = self._n
+	l.ZIndex = 102
 end
 
 function ShadowHub:StatusBar(text)
-	self._n+=1
-	local l = Instance.new("TextLabel", self._ct)
-	l.Size = UDim2.new(1,0,0,24)
+	self._n += 1
+	local l = Instance.new("TextLabel", self._content)
+	l.Size = UDim2.new(1, 0, 0, 24)
 	l.BackgroundColor3 = Theme.Card
 	l.BorderSizePixel = 0
-	l.Text = "  "..text
+	l.Text = "  " .. text
 	l.TextColor3 = Theme.Text
 	l.Font = Enum.Font.GothamMedium
 	l.TextSize = 8
 	l.TextXAlignment = Enum.TextXAlignment.Left
 	l.LayoutOrder = self._n
-	Instance.new("UICorner", l).CornerRadius = UDim.new(0,5)
-	return {SetText=function(_,t) l.Text="  "..t end}
+	l.ZIndex = 102
+	Instance.new("UICorner", l).CornerRadius = UDim.new(0, 5)
+
+	return {
+		SetText = function(_, t)
+			l.Text = "  " .. t
+		end
+	}
 end
 
 return ShadowHub
