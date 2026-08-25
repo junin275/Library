@@ -1,4 +1,4 @@
--- Shadow Hub V2 - Mobile + PC Smooth Version
+-- Shadow Hub V2 - Auto Reload Version
 local ShadowHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/junin275/Library/main/ShadowHubLibrary.lua"))()
 
 local Players = game:GetService("Players")
@@ -9,6 +9,64 @@ local Lighting = game:GetService("Lighting")
 local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
+
+-- ============================================
+-- AUTO RELOAD SYSTEM
+-- ============================================
+
+local RELOAD_URL = "https://raw.githubusercontent.com/junin275/Library/main/SonicHubV2.lua"
+local RELOAD_CHECK_INTERVAL = 300 -- check every 5 minutes
+local LAST_RELOAD = tick()
+
+local function AutoReload()
+	pcall(function()
+		-- Save state
+		local savedConfig = {}
+		for k, v in pairs(Config) do savedConfig[k] = v end
+		local savedKills = State.Kills
+		local savedStreak = State.Streak
+
+		-- Reload script
+		local success, err = pcall(function()
+			loadstring(game:HttpGet(RELOAD_URL))()
+		end)
+
+		if success then
+			StarterGui:SetCore("SendNotification", {
+				Title = "SH",
+				Text = "Recarregado!",
+				Duration = 2,
+			})
+		else
+			warn("[SH] Reload error: " .. tostring(err))
+		end
+	end)
+end
+
+-- Check for script updates periodically
+task.spawn(function()
+	while true do
+		task.wait(RELOAD_CHECK_INTERVAL)
+		-- Only reload if script has been running for a while
+		if tick() - LAST_RELOAD > RELOAD_CHECK_INTERVAL then
+			LAST_RELOAD = tick()
+			AutoReload()
+		end
+	end
+end)
+
+-- Auto reload on error
+local function SafeRun(func)
+	local success, err = pcall(func)
+	if not success then
+		warn("[SH] Error: " .. tostring(err))
+		-- Auto reload on critical error
+		task.delay(2, function()
+			AutoReload()
+		end)
+	end
+	return success
+end
 
 -- ============================================
 -- CONFIG
@@ -36,7 +94,7 @@ local Config = {
 	FOV = 70,
 	HitSound = true,
 	AimSmooth = 0.15,
-	AimFOV = 120,
+	AutoReload = false,
 }
 
 local State = {
@@ -118,7 +176,6 @@ local function FindTarget()
 			if hum and root and hum.Health > 0 then
 				local dist = (myRoot.Position - root.Position).Magnitude
 				if dist < bestDist and dist <= Config.MaxDistance then
-					-- Wall Check: only target if visible
 					if Config.WallCheck and not HasLineOfSight(p) then
 						-- Skip if behind wall
 					else
@@ -143,7 +200,6 @@ local function AimAtTarget(target)
 	local camPos = Camera.CFrame.Position
 	local targetPos = part.Position
 
-	-- Smooth aim (lerp) - the higher the value, the smoother/stickier
 	Camera.CFrame = Camera.CFrame:Lerp(
 		CFrame.new(camPos, targetPos),
 		Config.AimSmooth
@@ -208,7 +264,6 @@ local function CreateESP(player)
 	local c = isEnemy and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(50, 180, 255)
 	local cB = isEnemy and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(80, 200, 255)
 
-	-- BillboardGui
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "B"
 	bb.Adornee = head
@@ -218,7 +273,6 @@ local function CreateESP(player)
 	bb.MaxDistance = Config.MaxDistance
 	bb.Parent = ESPGui
 
-	-- Card
 	local card = Instance.new("Frame", bb)
 	card.Size = UDim2.new(1, 0, 1, 0)
 	card.BackgroundColor3 = Color3.fromRGB(5, 5, 12)
@@ -226,13 +280,11 @@ local function CreateESP(player)
 	card.BorderSizePixel = 0
 	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
 
-	-- Left bar
 	local bar = Instance.new("Frame", card)
 	bar.Size = UDim2.new(0, 3, 1, 0)
 	bar.BackgroundColor3 = c
 	bar.BorderSizePixel = 0
 
-	-- Team pill
 	local pill = Instance.new("Frame", card)
 	pill.Size = UDim2.new(0, 40, 0, 8)
 	pill.Position = UDim2.new(1, -48, 0, 4)
@@ -249,7 +301,6 @@ local function CreateESP(player)
 	pillText.Font = Enum.Font.GothamBlack
 	pillText.TextSize = 6
 
-	-- Name
 	local nameLabel = Instance.new("TextLabel", card)
 	nameLabel.Size = UDim2.new(1, -56, 0, 14)
 	nameLabel.Position = UDim2.new(0, 8, 0, 4)
@@ -263,7 +314,6 @@ local function CreateESP(player)
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
-	-- Distance
 	local distLabel = Instance.new("TextLabel", card)
 	distLabel.Size = UDim2.new(0, 40, 0, 10)
 	distLabel.Position = UDim2.new(1, -48, 0, 14)
@@ -276,7 +326,6 @@ local function CreateESP(player)
 	distLabel.TextSize = 8
 	distLabel.TextXAlignment = Enum.TextXAlignment.Right
 
-	-- HP Bar
 	local hpBG = Instance.new("Frame", card)
 	hpBG.Size = UDim2.new(0.88, 0, 0, 4)
 	hpBG.Position = UDim2.new(0.06, 0, 0, 22)
@@ -290,7 +339,6 @@ local function CreateESP(player)
 	hpFill.BorderSizePixel = 0
 	Instance.new("UICorner", hpFill).CornerRadius = UDim.new(0, 2)
 
-	-- HP text
 	local hpLabel = Instance.new("TextLabel", card)
 	hpLabel.Size = UDim2.new(0.88, 0, 0, 10)
 	hpLabel.Position = UDim2.new(0.06, 0, 0, 28)
@@ -303,7 +351,6 @@ local function CreateESP(player)
 	hpLabel.TextSize = 8
 	hpLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-	-- Status
 	local statusLabel = Instance.new("TextLabel", card)
 	statusLabel.Size = UDim2.new(0.88, 0, 0, 8)
 	statusLabel.Position = UDim2.new(0.06, 0, 0, 38)
@@ -316,7 +363,6 @@ local function CreateESP(player)
 	statusLabel.TextSize = 7
 	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-	-- Highlight
 	local hl = Instance.new("Highlight")
 	hl.Name = "H"
 	hl.Adornee = char
@@ -327,7 +373,6 @@ local function CreateESP(player)
 	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	hl.Parent = ESPGui
 
-	-- Tracer
 	local tracer = Instance.new("Frame", ESPGui)
 	tracer.Name = "T"
 	tracer.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -336,7 +381,6 @@ local function CreateESP(player)
 	tracer.BorderSizePixel = 0
 	tracer.Visible = false
 
-	-- Dot
 	local dot = Instance.new("Frame", ESPGui)
 	dot.Name = "D"
 	dot.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -668,6 +712,8 @@ menu:Toggle(s3, "Kill Notif", true, function(v) Config.KillNotify = v end)
 menu:Toggle(s3, "Hit Sound", true, function(v) Config.HitSound = v end)
 menu:Toggle(s3, "FFA Mode", true, function(v) Config.FFAMode = v end)
 menu:Button(s3, "Teleport", TeleportToEnemy)
+menu:Button(s3, "Reload Script", AutoReload)
+menu:Label(s3, "Recarrega o script")
 
 -- EXPLOITS
 local s4 = menu:Section("EXPLOITS")
@@ -688,7 +734,6 @@ local status = menu:StatusBar("K: 0 | S: 0")
 RunService.RenderStepped:Connect(function(dt)
 	UpdateAllESP()
 
-	-- AIMBOT: Always active when enabled
 	if Config.AimAssist then
 		local target = FindTarget()
 		if Config.TargetLock then
@@ -712,7 +757,6 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 	end
 
-	-- GPS
 	if Config.MiniGPS then
 		GPSFrame.Visible = true
 		local myChar = LocalPlayer.Character
@@ -740,7 +784,7 @@ end)
 
 StarterGui:SetCore("SendNotification", {
 	Title = "SH",
-	Text = "Pronto!",
-	Duration = 2,
+	Text = "Pronto! Botao Reload no menu",
+	Duration = 3,
 })
-print("[SH] Ready!")
+print("[SH] Ready with Auto Reload!")
