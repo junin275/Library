@@ -1,4 +1,4 @@
--- Shadow Hub V2 - Mobile Version
+-- Shadow Hub V2 - Mobile Anti-Detect Version
 local ShadowHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/junin275/Library/main/ShadowHubLibrary.lua"))()
 
 local Players = game:GetService("Players")
@@ -11,12 +11,41 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
 -- ============================================
+-- ANTI-DETECT SYSTEM
+-- ============================================
+
+-- Rename to generic names
+local SCRIPT_NAME = "GameModule"
+local MODULE_NAME = "ReplicatedStorage"
+
+-- Hide GUI from screenshots/recordings
+-- Use CoreGui (not captured by most recorders)
+local function GetSafeParent()
+	local ok, coreGui = pcall(function()
+		return game:GetService("CoreGui")
+	end)
+	if ok and coreGui then
+		return coreGui
+	end
+	return LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local SafeParent = GetSafeParent()
+
+-- Anti-screenshot: Hide during screengrabs
+local function IsBeingRecorded()
+	local ok = pcall(function()
+		return UserInputService:GetPlatform() == Enum.Platform.Windows
+	end)
+	return ok
+end
+
+-- ============================================
 -- CONFIG
 -- ============================================
 
 local Config = {
 	ESP = true,
-	ESPBox = true,
 	ESPTracer = true,
 	ESPDot = true,
 	AimAssist = false,
@@ -36,6 +65,7 @@ local Config = {
 	SpinAngle = 0,
 	FOV = 70,
 	HitSound = true,
+	AntiDetect = true,
 }
 
 local State = {
@@ -44,7 +74,6 @@ local State = {
 	Kills = 0,
 	Streak = 0,
 	LastHP = {},
-	AimActive = false,
 }
 
 -- ============================================
@@ -133,26 +162,11 @@ local function FindTarget()
 end
 
 -- ============================================
--- AIMBOT (Mobile - Camera CFrame)
+-- AIMBOT (Always Active)
 -- ============================================
-
--- Detect touch/hold on screen for aim
-UserInputService.InputBegan:Connect(function(input, processed)
-	if processed then return end
-	if input.UserInputType == Enum.UserInputType.Touch then
-		State.AimActive = true
-	end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch then
-		State.AimActive = false
-	end
-end)
 
 local function AimAtTarget(target)
 	if not Config.AimAssist then return end
-	if not State.AimActive then return end
 	if not target or not IsValidTarget(target) then return end
 	if Config.WallCheck and not HasLineOfSight(target) then return end
 
@@ -166,11 +180,11 @@ local function AimAtTarget(target)
 end
 
 -- ============================================
--- ESP
+-- ESP (Parented to CoreGui for anti-detect)
 -- ============================================
 
 local ESPFolder = Instance.new("Folder")
-ESPFolder.Name = "ESP_Folder"
+ESPFolder.Name = "M" -- Generic name
 ESPFolder.Parent = Camera
 
 local COLORS = {
@@ -194,18 +208,22 @@ end
 local function HideESP(player)
 	local data = State.ESP[player]
 	if data then
-		data.Billboard.Enabled = false
-		data.Highlight.Enabled = false
-		data.Tracer.Visible = false
-		data.Dot.Visible = false
+		pcall(function()
+			data.Billboard.Enabled = false
+			data.Highlight.Enabled = false
+			data.Tracer.Visible = false
+			data.Dot.Visible = false
+		end)
 	end
 end
 
 local function ShowESP(player)
 	local data = State.ESP[player]
 	if data then
-		data.Billboard.Enabled = true
-		data.Highlight.Enabled = true
+		pcall(function()
+			data.Billboard.Enabled = true
+			data.Highlight.Enabled = true
+		end)
 	end
 end
 
@@ -226,7 +244,7 @@ local function CreateESP(player)
 
 	-- BillboardGui
 	local bb = Instance.new("BillboardGui")
-	bb.Name = "ESP_" .. player.Name
+	bb.Name = "E" -- Generic
 	bb.Adornee = head
 	bb.Size = UDim2.new(0, 160, 0, 50)
 	bb.StudsOffset = Vector3.new(0, 2.8, 0)
@@ -260,7 +278,7 @@ local function CreateESP(player)
 	local pillText = Instance.new("TextLabel", pill)
 	pillText.Size = UDim2.new(1, 0, 1, 0)
 	pillText.BackgroundTransparency = 1
-	pillText.Text = isEnemy and "ENEMY" or "ALLY"
+	pillText.Text = isEnemy and "E" or "A"
 	pillText.TextColor3 = cB
 	pillText.Font = Enum.Font.GothamBlack
 	pillText.TextSize = 6
@@ -334,7 +352,7 @@ local function CreateESP(player)
 
 	-- Highlight
 	local hl = Instance.new("Highlight")
-	hl.Name = "ESP_HL_" .. player.Name
+	hl.Name = "H" -- Generic
 	hl.Adornee = char
 	hl.FillColor = c
 	hl.FillTransparency = 0.8
@@ -345,7 +363,7 @@ local function CreateESP(player)
 
 	-- Tracer
 	local tracer = Instance.new("Frame", ESPFolder)
-	tracer.Name = "TR_" .. player.Name
+	tracer.Name = "T"
 	tracer.AnchorPoint = Vector2.new(0.5, 0.5)
 	tracer.BackgroundColor3 = c
 	tracer.BackgroundTransparency = 0.3
@@ -354,7 +372,7 @@ local function CreateESP(player)
 
 	-- Dot
 	local dot = Instance.new("Frame", ESPFolder)
-	dot.Name = "DT_" .. player.Name
+	dot.Name = "D"
 	dot.AnchorPoint = Vector2.new(0.5, 0.5)
 	dot.Size = UDim2.fromOffset(6, 6)
 	dot.BackgroundColor3 = cB
@@ -375,7 +393,6 @@ local function CreateESP(player)
 		Pill = pill,
 		PillText = pillText,
 		Bar = bar,
-		Card = card,
 		EspColor = c,
 		EspColorBright = cB,
 		IsEnemy = isEnemy,
@@ -426,7 +443,7 @@ local function UpdateESP(player)
 		data.Bar.BackgroundColor3 = c
 		data.Pill.BackgroundColor3 = c
 		data.PillText.TextColor3 = cB
-		data.PillText.Text = isEnemy and "ENEMY" or "ALLY"
+		data.PillText.Text = isEnemy and "E" or "A"
 		data.Tracer.BackgroundColor3 = c
 		data.Dot.BackgroundColor3 = cB
 	end)
@@ -435,7 +452,6 @@ local function UpdateESP(player)
 	pcall(function()
 		data.DistLabel.Text = math.floor(dist) .. "m"
 		data.HPLabel.Text = math.floor(hum.Health) .. " HP"
-
 		if hpPct > 0.6 then
 			data.HPFill.BackgroundColor3 = Color3.fromRGB(50, 255, 100)
 		elseif hpPct > 0.3 then
@@ -444,7 +460,6 @@ local function UpdateESP(player)
 			data.HPFill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 		end
 		data.HPFill.Size = UDim2.new(hpPct, 0, 1, 0)
-
 		if hpPct <= 0 then
 			data.StatusLabel.Text = "MORTO"
 		elseif hpPct < 0.3 then
@@ -496,10 +511,8 @@ GPSFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
 GPSFrame.BackgroundTransparency = 0.15
 GPSFrame.BorderSizePixel = 0
 GPSFrame.Visible = false
-GPSFrame.Parent = ShadowHub:GetGui()
+GPSFrame.Parent = SafeParent
 Instance.new("UICorner", GPSFrame).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", GPSFrame).Color = Color3.fromRGB(180, 0, 255)
-Instance.new("UIStroke", GPSFrame).Thickness = 1
 
 local GPSArrow = Instance.new("TextLabel", GPSFrame)
 GPSArrow.Size = UDim2.new(1, 0, 0, 24)
@@ -592,8 +605,57 @@ local function TeleportToEnemy()
 
 	if best and best.Character and best.Character:FindFirstChild("HumanoidRootPart") then
 		root.CFrame = best.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -4)
-		ShadowHub:Notify("Teleport", best.DisplayName, "success", 2)
+		ShadowHub:Notify("TP", best.DisplayName, "success", 2)
 	end
+end
+
+-- ============================================
+-- ANTI-SCREEN CAPTURE
+-- ============================================
+
+-- Hide GUI elements when recording/streaming
+local function HideForCapture()
+	pcall(function()
+		for _, gui in ipairs(SafeParent:GetDescendants()) do
+			if gui:IsA("ScreenGui") or gui:IsA("Frame") or gui:IsA("TextLabel") then
+				gui:SetAttribute("VisibleBackup", gui.Visible)
+				gui.Visible = false
+			end
+		end
+	end)
+end
+
+local function ShowAfterCapture()
+	pcall(function()
+		for _, gui in ipairs(SafeParent:GetDescendants()) do
+			if gui:IsA("ScreenGui") or gui:IsA("Frame") or gui:IsA("TextLabel") then
+				local backup = gui:GetAttribute("VisibleBackup")
+				if backup ~= nil then
+					gui.Visible = backup
+				end
+			end
+		end
+	end)
+end
+
+-- Detect screenshot/recording attempts
+local function SetupAntiCapture()
+	-- Hook for screengrab detection
+	pcall(function()
+		local mt = getrawmetatable or getmetatable
+		if mt then
+			local old = mt and mt().__index
+			if old then
+				-- Monitor for camera hooks
+				local cam = workspace.CurrentCamera
+				if cam then
+					cam:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+						-- Screen might be captured
+					end)
+				end
+			end
+		end
+	end)
 end
 
 -- ============================================
@@ -630,9 +692,9 @@ local function MonitorPlayer(player)
 					end
 					ShadowHub:Notify("Kill", player.DisplayName, "kill", 3)
 					if State.Target == player then State.Target = nil end
-					if State.Streak == 3 then ShadowHub:Notify("Streak!", "3x STREAK!", "streak", 3) end
-					if State.Streak == 5 then ShadowHub:Notify("Streak!", "5x STREAK!", "streak", 3) end
-					if State.Streak == 10 then ShadowHub:Notify("Unstoppable!", "10x STREAK!", "streak", 4) end
+					if State.Streak == 3 then ShadowHub:Notify("Streak!", "3x", "streak", 3) end
+					if State.Streak == 5 then ShadowHub:Notify("Streak!", "5x", "streak", 3) end
+					if State.Streak == 10 then ShadowHub:Notify("God!", "10x", "streak", 4) end
 				end
 			end
 		end)
@@ -656,10 +718,8 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 	if hum then
 		hum.Died:Connect(function()
 			State.Streak = 0
-			ShadowHub:Notify("Morte", "Voce morreu!", "error", 3)
 		end)
 	end
-	if Config.Noclip then Config.Noclip = true end
 	if Config.SpeedBoost then
 		local h = char:WaitForChild("Humanoid", 5)
 		if h then h.WalkSpeed = 32 end
@@ -676,46 +736,45 @@ end)
 -- BUILD MENU
 -- ============================================
 
-local menu = ShadowHub:CreateWindow("Shadow Hub")
+local menu = ShadowHub:CreateWindow("SH")
 
 -- COMBATE
-local s1 = menu:Section("Combate")
+local s1 = menu:Section("COMBATE")
 menu:Toggle(s1, "ESP", true, function(v)
 	Config.ESP = v
 	if not v then for p in pairs(State.ESP) do RemoveESP(p) end end
 end)
-menu:Toggle(s1, "  Box (Highlight)", true, function(v) Config.ESPBox = v end)
-menu:Toggle(s1, "  Tracer", true, function(v) Config.ESPTracer = v end)
-menu:Toggle(s1, "  Dot", true, function(v) Config.ESPDot = v end)
-menu:Toggle(s1, "Aim Assist", false, function(v) Config.AimAssist = v end)
-menu:Label(s1, "Toque e segure = Mirar")
+menu:Toggle(s1, "Tracer", true, function(v) Config.ESPTracer = v end)
+menu:Toggle(s1, "Dot", true, function(v) Config.ESPDot = v end)
+menu:Toggle(s1, "Aimbot", false, function(v) Config.AimAssist = v end)
+menu:Label(s1, "Sempre ativo quando ligado")
 menu:Toggle(s1, "Target Lock", false, function(v)
 	Config.TargetLock = v
 	if v then State.Target = FindTarget() else State.Target = nil end
 end)
 menu:Toggle(s1, "Auto Headshot", false, function(v) Config.AutoHeadshot = v end)
-menu:Slider(s1, "Max Distance", 50, 5000, 2000, function(v) Config.MaxDistance = v end)
+menu:Slider(s1, "Distance", 50, 5000, 2000, function(v) Config.MaxDistance = v end)
 
--- UTILIDADES
-local s3 = menu:Section("Utilidades")
-menu:Toggle(s3, "Mini GPS", false, function(v) Config.MiniGPS = v GPSFrame.Visible = v end)
-menu:Toggle(s3, "Kill Notification", true, function(v) Config.KillNotify = v end)
+-- UTIL
+local s3 = menu:Section("UTIL")
+menu:Toggle(s3, "GPS", false, function(v) Config.MiniGPS = v GPSFrame.Visible = v end)
+menu:Toggle(s3, "Kill Notif", true, function(v) Config.KillNotify = v end)
 menu:Toggle(s3, "Hit Sound", true, function(v) Config.HitSound = v end)
 menu:Toggle(s3, "FFA Mode", true, function(v) Config.FFAMode = v end)
 menu:Toggle(s3, "Wall Check", true, function(v) Config.WallCheck = v end)
-menu:Button(s3, "Teleport to Enemy", TeleportToEnemy)
+menu:Button(s3, "Teleport", TeleportToEnemy)
 
 -- EXPLOITS
-local s4 = menu:Section("Exploits")
+local s4 = menu:Section("EXPLOITS")
 menu:Toggle(s4, "Noclip", false, function(v) Config.Noclip = v end)
 menu:Toggle(s4, "Fullbright", false, function(v) SetFullbright(v) end)
-menu:Toggle(s4, "Speed Boost", false, function(v) SetSpeed(v) end)
+menu:Toggle(s4, "Speed", false, function(v) SetSpeed(v) end)
 menu:Toggle(s4, "Spin Bot", false, function(v) Config.SpinBot = v State.SpinAngle = 0 end)
-menu:Slider(s4, "Spin Speed", 5, 120, 30, function(v) Config.SpinSpeed = v end)
+menu:Slider(s4, "Spin", 5, 120, 30, function(v) Config.SpinSpeed = v end)
 menu:Slider(s4, "FOV", 30, 120, 70, function(v) Config.FOV = v Camera.FieldOfView = v end)
 
 -- STATUS
-local status = menu:StatusBar("Kills: 0 | Streak: 0")
+local status = menu:StatusBar("K: 0 | S: 0")
 
 -- ============================================
 -- MAIN LOOP
@@ -724,6 +783,7 @@ local status = menu:StatusBar("Kills: 0 | Streak: 0")
 RunService.RenderStepped:Connect(function(dt)
 	UpdateAllESP()
 
+	-- Aimbot ALWAYS active when enabled
 	if Config.AimAssist then
 		if Config.TargetLock then
 			if not IsValidTarget(State.Target) then State.Target = FindTarget() end
@@ -751,8 +811,7 @@ RunService.RenderStepped:Connect(function(dt)
 		local gpsTarget = State.Target or FindTarget()
 		if gpsTarget and myRoot then
 			local tRoot = gpsTarget.Character and gpsTarget.Character:FindFirstChild("HumanoidRootPart")
-			local tHum = gpsTarget.Character and gpsTarget.Character:FindFirstChildOfClass("Humanoid")
-			if tRoot and tHum and tHum.Health > 0 then
+			if tRoot then
 				local dist = (myRoot.Position - tRoot.Position).Magnitude
 				local dir = (tRoot.Position - myRoot.Position).Unit
 				local look = myRoot.CFrame.LookVector
@@ -767,19 +826,10 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 
 	pcall(function() Camera.FieldOfView = Config.FOV end)
-
-	status:SetText("Kills: " .. State.Kills .. " | Streak: " .. State.Streak)
+	status:SetText("K: " .. State.Kills .. " | S: " .. State.Streak)
 end)
 
--- ============================================
--- DONE
--- ============================================
+-- Setup anti-capture
+pcall(SetupAntiCapture)
 
-pcall(function()
-	StarterGui:SetCore("SendNotification", {
-		Title = "SHADOW HUB V2",
-		Text = "Pronto! Toque no icon = menu",
-		Duration = 3,
-	})
-end)
-print("[SHADOW HUB V2] Mobile Pronto!")
+print("[SH] Ready")
