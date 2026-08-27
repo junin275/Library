@@ -141,6 +141,7 @@ local function RemoveESP(player)
 		pcall(function() data.Highlight:Destroy() end)
 		pcall(function() data.Tracer:Destroy() end)
 		pcall(function() data.Dot:Destroy() end)
+		pcall(function() data.DotGlow:Destroy() end)
 		pcall(function() data.Glow:Destroy() end)
 		State.ESP[player] = nil
 	end
@@ -201,7 +202,7 @@ local function CreateESP(player)
 	glow.Size = UDim2.new(1, 8, 1, 8)
 	glow.Position = UDim2.new(0, -4, 0, -4)
 	glow.BackgroundColor3 = c
-	glow.BackgroundTransparency = 0.85
+	glow.BackgroundTransparency = 0.9
 	glow.BorderSizePixel = 0
 	glow.ZIndex = 0
 	Instance.new("UICorner", glow).CornerRadius = UDim.new(0, 12)
@@ -211,7 +212,7 @@ local function CreateESP(player)
 	card.Name = "Card"
 	card.Size = UDim2.new(1, 0, 1, 0)
 	card.BackgroundColor3 = C.Dark
-	card.BackgroundTransparency = 0.25
+	card.BackgroundTransparency = 0.55
 	card.BorderSizePixel = 0
 	card.ZIndex = 2
 	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
@@ -603,6 +604,7 @@ local function MonitorPlayer(player)
 			local oldHP = State.LastHP[player] or newHP
 			State.LastHP[player] = newHP
 			if oldHP > 0 and newHP <= 0 then
+				task.delay(0.1, function() RemoveESP(player) end)
 				local dist = GetDistance(player)
 				if State.Target == player or dist < 80 then
 					State.Kills += 1
