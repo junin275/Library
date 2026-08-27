@@ -1,4 +1,4 @@
--- Shadow Hub V2 - Mobile Version
+-- Shadow Hub V2 - Premium Design Version
 local ShadowHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/junin275/Library/main/ShadowHubLibrary.lua"))()
 
 local Players = game:GetService("Players")
@@ -18,12 +18,31 @@ local Config = {
 	Noclip = false, Fullbright = false, SpeedBoost = false,
 	SpinBot = false, SpinSpeed = 30, SpinAngle = 0,
 	FOV = 70, HitSound = true, AimSmooth = 0.15,
-	AutoReload = false,
 }
 
 local State = {
 	ESP = {}, Target = nil, Kills = 0, Streak = 0,
-	LastHP = {}, LastAmmo = -1, ReloadCooldown = false, IsReloading = false,
+	LastHP = {},
+}
+
+-- COLORS
+local C = {
+	Enemy = Color3.fromRGB(255, 45, 45),
+	EnemyBright = Color3.fromRGB(255, 85, 85),
+	EnemyDark = Color3.fromRGB(180, 25, 25),
+	Ally = Color3.fromRGB(0, 170, 255),
+	AllyBright = Color3.fromRGB(80, 200, 255),
+	AllyDark = Color3.fromRGB(0, 100, 180),
+	Accent = Color3.fromRGB(160, 80, 255),
+	AccentBright = Color3.fromRGB(200, 140, 255),
+	Green = Color3.fromRGB(50, 255, 120),
+	Yellow = Color3.fromRGB(255, 220, 50),
+	Red = Color3.fromRGB(255, 60, 60),
+	Dark = Color3.fromRGB(12, 12, 20),
+	Dark2 = Color3.fromRGB(20, 20, 32),
+	Dark3 = Color3.fromRGB(30, 30, 48),
+	Text = Color3.fromRGB(220, 220, 235),
+	TextDim = Color3.fromRGB(140, 140, 160),
 }
 
 local function IsColorClose(a, b, tol)
@@ -73,8 +92,6 @@ local function IsValidTarget(target)
 	return hum and root and hum.Health > 0
 end
 
--- AUTO RELOAD REMOVED (Mobile incompatibility)
-
 -- AIMBOT
 local function FindTarget()
 	local best, bestDist = nil, math.huge
@@ -109,7 +126,7 @@ local function AimAtTarget(target)
 	Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, part.Position), Config.AimSmooth)
 end
 
--- ESP
+-- ESP PREMIUM
 local ESPGui = Instance.new("ScreenGui")
 ESPGui.Name = "E"
 ESPGui.ResetOnSpawn = false
@@ -124,6 +141,7 @@ local function RemoveESP(player)
 		pcall(function() data.Highlight:Destroy() end)
 		pcall(function() data.Tracer:Destroy() end)
 		pcall(function() data.Dot:Destroy() end)
+		pcall(function() data.Glow:Destroy() end)
 		State.ESP[player] = nil
 	end
 end
@@ -136,6 +154,7 @@ local function HideESP(player)
 			data.Highlight.Enabled = false
 			data.Tracer.Visible = false
 			data.Dot.Visible = false
+			data.Glow.Enabled = false
 		end)
 	end
 end
@@ -146,6 +165,7 @@ local function ShowESP(player)
 		pcall(function()
 			data.Frame.Enabled = true
 			data.Highlight.Enabled = true
+			data.Glow.Enabled = true
 		end)
 	end
 end
@@ -161,140 +181,227 @@ local function CreateESP(player)
 	if not head or not root or not hum then return end
 
 	local isEnemy = IsEnemy(player)
-	local c = isEnemy and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(50, 180, 255)
-	local cB = isEnemy and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(80, 200, 255)
+	local c = isEnemy and C.Enemy or C.Ally
+	local cB = isEnemy and C.EnemyBright or C.AllyBright
+	local cD = isEnemy and C.EnemyDark or C.AllyDark
 
+	-- BillboardGui
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "B"
 	bb.Adornee = head
-	bb.Size = UDim2.new(0, 160, 0, 50)
-	bb.StudsOffset = Vector3.new(0, 2.8, 0)
+	bb.Size = UDim2.new(0, 180, 0, 65)
+	bb.StudsOffset = Vector3.new(0, 3, 0)
 	bb.AlwaysOnTop = true
 	bb.MaxDistance = Config.MaxDistance
 	bb.Parent = ESPGui
 
-	local card = Instance.new("Frame", bb)
-	card.Size = UDim2.new(1, 0, 1, 0)
-	card.BackgroundColor3 = Color3.fromRGB(5, 5, 12)
-	card.BackgroundTransparency = 0.75
-	card.BorderSizePixel = 0
-	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+	-- Glow (outer shadow)
+	local glow = Instance.new("Frame", bb)
+	glow.Name = "Glow"
+	glow.Size = UDim2.new(1, 8, 1, 8)
+	glow.Position = UDim2.new(0, -4, 0, -4)
+	glow.BackgroundColor3 = c
+	glow.BackgroundTransparency = 0.85
+	glow.BorderSizePixel = 0
+	glow.ZIndex = 0
+	Instance.new("UICorner", glow).CornerRadius = UDim.new(0, 12)
 
+	-- Main card
+	local card = Instance.new("Frame", bb)
+	card.Name = "Card"
+	card.Size = UDim2.new(1, 0, 1, 0)
+	card.BackgroundColor3 = C.Dark
+	card.BackgroundTransparency = 0.25
+	card.BorderSizePixel = 0
+	card.ZIndex = 2
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+	Instance.new("UIStroke", card).Color = c
+	Instance.new("UIStroke", card).Thickness = 1.5
+	Instance.new("UIStroke", card).Transparency = 0.4
+
+	-- Gradient overlay
+	local grad = Instance.new("Frame", card)
+	grad.Size = UDim2.new(1, 0, 0.5, 0)
+	grad.BackgroundColor3 = Color3.new(1, 1, 1)
+	grad.BackgroundTransparency = 0.92
+	grad.BorderSizePixel = 0
+	grad.ZIndex = 3
+
+	-- Color bar (left accent)
 	local bar = Instance.new("Frame", card)
-	bar.Size = UDim2.new(0, 3, 1, 0)
+	bar.Name = "Bar"
+	bar.Size = UDim2.new(0, 4, 0.7, 0)
+	bar.Position = UDim2.new(0, 6, 0.15, 0)
 	bar.BackgroundColor3 = c
 	bar.BorderSizePixel = 0
+	bar.ZIndex = 4
+	Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 2)
 
-	local pill = Instance.new("Frame", card)
-	pill.Size = UDim2.new(0, 40, 0, 8)
-	pill.Position = UDim2.new(1, -48, 0, 4)
-	pill.BackgroundColor3 = c
-	pill.BackgroundTransparency = 0.5
-	pill.BorderSizePixel = 0
-	Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
+	-- Team badge
+	local badge = Instance.new("Frame", card)
+	badge.Size = UDim2.new(0, 44, 0, 13)
+	badge.Position = UDim2.new(1, -50, 0, 5)
+	badge.BackgroundColor3 = cD
+	badge.BackgroundTransparency = 0.3
+	badge.BorderSizePixel = 0
+	badge.ZIndex = 4
+	Instance.new("UICorner", badge).CornerRadius = UDim.new(0, 6)
+	Instance.new("UIStroke", badge).Color = c
+	Instance.new("UIStroke", badge).Thickness = 1
+	Instance.new("UIStroke", badge).Transparency = 0.5
 
-	local pillText = Instance.new("TextLabel", pill)
-	pillText.Size = UDim2.new(1, 0, 1, 0)
-	pillText.BackgroundTransparency = 1
-	pillText.Text = isEnemy and "ENEMY" or "ALLY"
-	pillText.TextColor3 = cB
-	pillText.Font = Enum.Font.GothamBlack
-	pillText.TextSize = 6
+	local badgeText = Instance.new("TextLabel", badge)
+	badgeText.Size = UDim2.new(1, 0, 1, 0)
+	badgeText.BackgroundTransparency = 1
+	badgeText.Text = isEnemy and "ENEMY" or "ALLY"
+	badgeText.TextColor3 = cB
+	badgeText.Font = Enum.Font.GothamBlack
+	badgeText.TextSize = 8
+	badgeText.ZIndex = 5
 
+	-- Name
 	local nameLabel = Instance.new("TextLabel", card)
-	nameLabel.Size = UDim2.new(1, -56, 0, 14)
-	nameLabel.Position = UDim2.new(0, 8, 0, 4)
+	nameLabel.Name = "Name"
+	nameLabel.Size = UDim2.new(1, -60, 0, 16)
+	nameLabel.Position = UDim2.new(0, 16, 0, 6)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Text = player.DisplayName
-	nameLabel.TextColor3 = cB
+	nameLabel.TextColor3 = C.Text
 	nameLabel.TextStrokeTransparency = 0
 	nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
 	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextSize = 11
+	nameLabel.TextSize = 13
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	nameLabel.ZIndex = 4
 
+	-- Distance
 	local distLabel = Instance.new("TextLabel", card)
-	distLabel.Size = UDim2.new(0, 40, 0, 10)
-	distLabel.Position = UDim2.new(1, -48, 0, 14)
+	distLabel.Name = "Dist"
+	distLabel.Size = UDim2.new(0, 50, 0, 12)
+	distLabel.Position = UDim2.new(1, -55, 0, 20)
 	distLabel.BackgroundTransparency = 1
 	distLabel.Text = "0m"
-	distLabel.TextColor3 = Color3.fromRGB(150, 150, 170)
+	distLabel.TextColor3 = C.TextDim
 	distLabel.TextStrokeTransparency = 0
 	distLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
 	distLabel.Font = Enum.Font.GothamBold
-	distLabel.TextSize = 8
+	distLabel.TextSize = 10
 	distLabel.TextXAlignment = Enum.TextXAlignment.Right
+	distLabel.ZIndex = 4
 
+	-- HP background
 	local hpBG = Instance.new("Frame", card)
-	hpBG.Size = UDim2.new(0.88, 0, 0, 4)
-	hpBG.Position = UDim2.new(0.06, 0, 0, 22)
-	hpBG.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+	hpBG.Size = UDim2.new(0.82, 0, 0, 7)
+	hpBG.Position = UDim2.new(0.09, 0, 0, 28)
+	hpBG.BackgroundColor3 = C.Dark3
 	hpBG.BorderSizePixel = 0
-	Instance.new("UICorner", hpBG).CornerRadius = UDim.new(0, 2)
+	hpBG.ZIndex = 4
+	Instance.new("UICorner", hpBG).CornerRadius = UDim.new(0, 4)
 
+	-- HP fill
 	local hpFill = Instance.new("Frame", hpBG)
+	hpFill.Name = "Fill"
 	hpFill.Size = UDim2.new(1, 0, 1, 0)
-	hpFill.BackgroundColor3 = Color3.fromRGB(50, 255, 100)
+	hpFill.BackgroundColor3 = C.Green
 	hpFill.BorderSizePixel = 0
-	Instance.new("UICorner", hpFill).CornerRadius = UDim.new(0, 2)
+	hpFill.ZIndex = 5
+	Instance.new("UICorner", hpFill).CornerRadius = UDim.new(0, 4)
 
+	-- HP shine
+	local hpShine = Instance.new("Frame", hpFill)
+	hpShine.Size = UDim2.new(1, 0, 0.4, 0)
+	hpShine.Position = UDim2.new(0, 0, 0, 0)
+	hpShine.BackgroundColor3 = Color3.new(1, 1, 1)
+	hpShine.BackgroundTransparency = 0.7
+	hpShine.BorderSizePixel = 0
+	hpShine.ZIndex = 6
+	Instance.new("UICorner", hpShine).CornerRadius = UDim.new(0, 4)
+
+	-- HP text
 	local hpLabel = Instance.new("TextLabel", card)
-	hpLabel.Size = UDim2.new(0.88, 0, 0, 10)
-	hpLabel.Position = UDim2.new(0.06, 0, 0, 28)
+	hpLabel.Name = "HP"
+	hpLabel.Size = UDim2.new(0.82, 0, 0, 10)
+	hpLabel.Position = UDim2.new(0.09, 0, 0, 37)
 	hpLabel.BackgroundTransparency = 1
 	hpLabel.Text = "100 HP"
-	hpLabel.TextColor3 = Color3.fromRGB(180, 180, 195)
+	hpLabel.TextColor3 = C.TextDim
 	hpLabel.TextStrokeTransparency = 0
 	hpLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
 	hpLabel.Font = Enum.Font.Gotham
-	hpLabel.TextSize = 8
+	hpLabel.TextSize = 9
 	hpLabel.TextXAlignment = Enum.TextXAlignment.Left
+	hpLabel.ZIndex = 4
 
+	-- Status label
 	local statusLabel = Instance.new("TextLabel", card)
-	statusLabel.Size = UDim2.new(0.88, 0, 0, 8)
-	statusLabel.Position = UDim2.new(0.06, 0, 0, 38)
+	statusLabel.Name = "Status"
+	statusLabel.Size = UDim2.new(0.82, 0, 0, 8)
+	statusLabel.Position = UDim2.new(0.09, 0, 0, 48)
 	statusLabel.BackgroundTransparency = 1
 	statusLabel.Text = ""
 	statusLabel.TextColor3 = cB
 	statusLabel.TextStrokeTransparency = 0
 	statusLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
 	statusLabel.Font = Enum.Font.GothamBold
-	statusLabel.TextSize = 7
+	statusLabel.TextSize = 8
 	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+	statusLabel.ZIndex = 4
 
+	-- Highlight
 	local hl = Instance.new("Highlight")
 	hl.Name = "H"
 	hl.Adornee = char
 	hl.FillColor = c
-	hl.FillTransparency = 0.8
+	hl.FillTransparency = 0.75
 	hl.OutlineColor = cB
-	hl.OutlineTransparency = 0.1
+	hl.OutlineTransparency = 0.15
 	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	hl.Parent = ESPGui
 
+	-- Tracer
 	local tracer = Instance.new("Frame", ESPGui)
 	tracer.Name = "T"
 	tracer.AnchorPoint = Vector2.new(0.5, 0.5)
 	tracer.BackgroundColor3 = c
-	tracer.BackgroundTransparency = 0.3
+	tracer.BackgroundTransparency = 0.4
 	tracer.BorderSizePixel = 0
 	tracer.Visible = false
 
+	-- Tracer gradient
+	local tracerGrad = Instance.new("UIGradient", tracer)
+	tracerGrad.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.8),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	tracerGrad.Rotation = 90
+
+	-- Dot
 	local dot = Instance.new("Frame", ESPGui)
 	dot.Name = "D"
 	dot.AnchorPoint = Vector2.new(0.5, 0.5)
-	dot.Size = UDim2.fromOffset(6, 6)
+	dot.Size = UDim2.fromOffset(8, 8)
 	dot.BackgroundColor3 = cB
 	dot.BorderSizePixel = 0
 	dot.Visible = false
 	Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
 
+	-- Dot glow
+	local dotGlow = Instance.new("Frame", ESPGui)
+	dotGlow.Name = "DG"
+	dotGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+	dotGlow.Size = UDim2.fromOffset(14, 14)
+	dotGlow.BackgroundColor3 = c
+	dotGlow.BackgroundTransparency = 0.7
+	dotGlow.BorderSizePixel = 0
+	dotGlow.Visible = false
+	Instance.new("UICorner", dotGlow).CornerRadius = UDim.new(1, 0)
+
 	State.ESP[player] = {
-		Frame = bb, Highlight = hl, Tracer = tracer, Dot = dot,
+		Frame = bb, Highlight = hl, Tracer = tracer, Dot = dot, Glow = glow, DotGlow = dotGlow,
 		NameLabel = nameLabel, DistLabel = distLabel, HPLabel = hpLabel,
-		HPFill = hpFill, StatusLabel = statusLabel, Pill = pill,
-		PillText = pillText, Bar = bar, EspColor = c, EspColorBright = cB, IsEnemy = isEnemy,
+		HPFill = hpFill, StatusLabel = statusLabel, Badge = badge, BadgeText = badgeText,
+		Bar = bar, EspColor = c, EspColorBright = cB, EspColorDark = cD, IsEnemy = isEnemy,
 	}
 end
 
@@ -314,28 +421,33 @@ local function UpdateESP(player)
 	if not data then return end
 	ShowESP(player)
 
+	local c = data.EspColor
+	local cB = data.EspColorBright
+	local cD = data.EspColorDark
+
 	pcall(function()
 		data.Highlight.Adornee = char
-		data.Highlight.FillColor = data.EspColor
-		data.Highlight.OutlineColor = data.EspColorBright
-		data.Bar.BackgroundColor3 = data.EspColor
-		data.Pill.BackgroundColor3 = data.EspColor
-		data.PillText.TextColor3 = data.EspColorBright
-		data.PillText.Text = isEnemy and "ENEMY" or "ALLY"
-		data.Tracer.BackgroundColor3 = data.EspColor
-		data.Dot.BackgroundColor3 = data.EspColorBright
+		data.Highlight.FillColor = c
+		data.Highlight.OutlineColor = cB
+		data.Bar.BackgroundColor3 = c
+		data.Badge.BackgroundColor3 = cD
+		data.BadgeText.TextColor3 = cB
+		data.BadgeText.Text = isEnemy and "ENEMY" or "ALLY"
+		data.Tracer.BackgroundColor3 = c
+		data.Dot.BackgroundColor3 = cB
+		data.DotGlow.BackgroundColor3 = c
 	end)
 
 	local hpPct = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
 	pcall(function()
 		data.DistLabel.Text = math.floor(dist) .. "m"
 		data.HPLabel.Text = math.floor(hum.Health) .. " HP"
-		if hpPct > 0.6 then data.HPFill.BackgroundColor3 = Color3.fromRGB(50, 255, 100)
-		elseif hpPct > 0.3 then data.HPFill.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-		else data.HPFill.BackgroundColor3 = Color3.fromRGB(255, 50, 50) end
+		if hpPct > 0.6 then data.HPFill.BackgroundColor3 = C.Green
+		elseif hpPct > 0.3 then data.HPFill.BackgroundColor3 = C.Yellow
+		else data.HPFill.BackgroundColor3 = C.Red end
 		data.HPFill.Size = UDim2.new(hpPct, 0, 1, 0)
-		if hpPct <= 0 then data.StatusLabel.Text = "MORTO"
-		elseif hpPct < 0.3 then data.StatusLabel.Text = "LOW HP"
+		if hpPct <= 0 then data.StatusLabel.Text = "ELIMINATED"
+		elseif hpPct < 0.3 then data.StatusLabel.Text = "CRITICAL"
 		else data.StatusLabel.Text = "" end
 	end)
 
@@ -351,9 +463,12 @@ local function UpdateESP(player)
 			data.Tracer.Visible = Config.ESPTracer
 			data.Dot.Position = UDim2.fromOffset(sp.X, sp.Y)
 			data.Dot.Visible = Config.ESPDot
+			data.DotGlow.Position = UDim2.fromOffset(sp.X, sp.Y)
+			data.DotGlow.Visible = Config.ESPDot
 		else
 			data.Tracer.Visible = false
 			data.Dot.Visible = false
+			data.DotGlow.Visible = false
 		end
 	end)
 end
@@ -365,47 +480,60 @@ local function UpdateAllESP()
 	end
 end
 
--- GPS
+-- GPS PREMIUM
 local GPSFrame = Instance.new("Frame")
-GPSFrame.Size = UDim2.new(0, 120, 0, 70)
-GPSFrame.Position = UDim2.new(1, -135, 0, 12)
-GPSFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
-GPSFrame.BackgroundTransparency = 0.15
+GPSFrame.Size = UDim2.new(0, 140, 0, 80)
+GPSFrame.Position = UDim2.new(1, -155, 0, 15)
+GPSFrame.BackgroundColor3 = C.Dark
+GPSFrame.BackgroundTransparency = 0.2
 GPSFrame.BorderSizePixel = 0
 GPSFrame.Visible = false
 GPSFrame.Parent = ESPGui
-Instance.new("UICorner", GPSFrame).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", GPSFrame).Color = Color3.fromRGB(180, 0, 255)
+Instance.new("UICorner", GPSFrame).CornerRadius = UDim.new(0, 12)
+Instance.new("UIStroke", GPSFrame).Color = C.Accent
+Instance.new("UIStroke", GPSFrame).Thickness = 1.5
+Instance.new("UIStroke", GPSFrame).Transparency = 0.3
+
+-- GPS gradient
+local gpsGrad = Instance.new("Frame", GPSFrame)
+gpsGrad.Size = UDim2.new(1, 0, 0.4, 0)
+gpsGrad.BackgroundColor3 = Color3.new(1, 1, 1)
+gpsGrad.BackgroundTransparency = 0.92
+gpsGrad.BorderSizePixel = 0
 
 local GPSArrow = Instance.new("TextLabel", GPSFrame)
-GPSArrow.Size = UDim2.new(1, 0, 0, 24)
-GPSArrow.Position = UDim2.new(0, 0, 0, 4)
+GPSArrow.Size = UDim2.new(1, 0, 0, 28)
+GPSArrow.Position = UDim2.new(0, 0, 0, 6)
 GPSArrow.BackgroundTransparency = 1
 GPSArrow.Text = "\226\136\128"
-GPSArrow.TextColor3 = Color3.fromRGB(50, 255, 100)
+GPSArrow.TextColor3 = C.Green
 GPSArrow.TextStrokeTransparency = 0
+GPSArrow.TextStrokeColor3 = Color3.new(0, 0, 0)
 GPSArrow.Font = Enum.Font.GothamBlack
-GPSArrow.TextSize = 20
+GPSArrow.TextSize = 22
 
 local GPSDist = Instance.new("TextLabel", GPSFrame)
-GPSDist.Size = UDim2.new(1, 0, 0, 14)
-GPSDist.Position = UDim2.new(0, 0, 0, 30)
+GPSDist.Size = UDim2.new(1, 0, 0, 16)
+GPSDist.Position = UDim2.new(0, 0, 0, 36)
 GPSDist.BackgroundTransparency = 1
 GPSDist.Text = "--"
-GPSDist.TextColor3 = Color3.fromRGB(180, 0, 255)
+GPSDist.TextColor3 = C.AccentBright
 GPSDist.TextStrokeTransparency = 0
+GPSDist.TextStrokeColor3 = Color3.new(0, 0, 0)
 GPSDist.Font = Enum.Font.GothamBold
-GPSDist.TextSize = 10
+GPSDist.TextSize = 12
 
 local GPSName = Instance.new("TextLabel", GPSFrame)
-GPSName.Size = UDim2.new(1, 0, 0, 12)
-GPSName.Position = UDim2.new(0, 0, 0, 46)
+GPSName.Size = UDim2.new(1, -10, 0, 14)
+GPSName.Position = UDim2.new(0, 5, 0, 55)
 GPSName.BackgroundTransparency = 1
 GPSName.Text = "procurando..."
-GPSName.TextColor3 = Color3.fromRGB(200, 200, 210)
+GPSName.TextColor3 = C.TextDim
 GPSName.TextStrokeTransparency = 0
+GPSName.TextStrokeColor3 = Color3.new(0, 0, 0)
 GPSName.Font = Enum.Font.Gotham
-GPSName.TextSize = 8
+GPSName.TextSize = 9
+GPSName.TextTruncate = Enum.TextTruncate.AtEnd
 
 -- EXPLOITS
 RunService.Stepped:Connect(function()
