@@ -1,754 +1,776 @@
--- Shadow Hub V2 - Premium Design Version
-local ShadowHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/junin275/Library/main/ShadowHubLibrary.lua"))()
-
+local a = loadstring(game:HttpGet("https://raw.githubusercontent.com/junin275/Library/main/ShadowHubLibrary.lua"))()
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
-local Lighting = game:GetService("Lighting")
-local StarterGui = game:GetService("StarterGui")
-local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
-
-local Config = {
-	ESP = true, ESPTracer = true, ESPDot = true,
-	AimAssist = false, TargetLock = false, WallCheck = true,
-	FFAMode = true, MaxDistance = 2000, TargetPart = "HumanoidRootPart",
-	AutoHeadshot = false, KillNotify = true, MiniGPS = false,
-	Noclip = false, Fullbright = false, SpeedBoost = false,
-	SpinBot = false, SpinSpeed = 30, SpinAngle = 0,
-	FOV = 70, HitSound = true, AimSmooth = 0.15,
-}
-
-local State = {
-	ESP = {}, Target = nil, Kills = 0, Streak = 0,
-	LastHP = {},
-}
-
--- COLORS
-local C = {
-	Enemy = Color3.fromRGB(255, 45, 45),
-	EnemyBright = Color3.fromRGB(255, 85, 85),
-	EnemyDark = Color3.fromRGB(180, 25, 25),
-	Ally = Color3.fromRGB(0, 170, 255),
-	AllyBright = Color3.fromRGB(80, 200, 255),
-	AllyDark = Color3.fromRGB(0, 100, 180),
-	Accent = Color3.fromRGB(160, 80, 255),
-	AccentBright = Color3.fromRGB(200, 140, 255),
-	Green = Color3.fromRGB(50, 255, 120),
-	Yellow = Color3.fromRGB(255, 220, 50),
-	Red = Color3.fromRGB(255, 60, 60),
-	Dark = Color3.fromRGB(12, 12, 20),
-	Dark2 = Color3.fromRGB(20, 20, 32),
-	Dark3 = Color3.fromRGB(30, 30, 48),
-	Text = Color3.fromRGB(220, 220, 235),
-	TextDim = Color3.fromRGB(140, 140, 160),
-}
-
-local function IsColorClose(a, b, tol)
-	tol = tol or 0.15
-	return math.abs(a.R - b.R) < tol and math.abs(a.G - b.G) < tol and math.abs(a.B - b.B) < tol
+local b = game:GetService("RunService")
+local c = game:GetService("UserInputService")
+local d = game:GetService("Workspace")
+local e = game:GetService("Lighting")
+local f = game:GetService("StarterGui")
+local g = Players.LocalPlayer
+local h = d.CurrentCamera
+local i = {ESP = true, ESPTracer = true, ESPDot = true, AimAssist = false, TargetLock = false, WallCheck = true, FFAMode = true, MaxDistance = 2000, TargetPart = "HumanoidRootPart", AutoHeadshot = false, KillNotify = true, MiniGPS = false, Noclip = false, Fullbright = false, SpeedBoost = false, SpinBot = false, SpinSpeed = 30, SpinAngle = 0, FOV = 70, HitSound = true, AimSmooth = 0.15}
+local j = {ESP = {}, Target = nil, Kills = 0, Streak = 0, LastHP = {}}
+local k = {Enemy = Color3.fromRGB(255, 45, 45), EnemyBright = Color3.fromRGB(255, 85, 85), EnemyDark = Color3.fromRGB(180, 25, 25), Ally = Color3.fromRGB(0, 170, 255), AllyBright = Color3.fromRGB(80, 200, 255), AllyDark = Color3.fromRGB(0, 100, 180), Accent = Color3.fromRGB(160, 80, 255), AccentBright = Color3.fromRGB(200, 140, 255), Green = Color3.fromRGB(50, 255, 120), Yellow = Color3.fromRGB(255, 220, 50), Red = Color3.fromRGB(255, 60, 60), Dark = Color3.fromRGB(12, 12, 20), Dark2 = Color3.fromRGB(20, 20, 32), Dark3 = Color3.fromRGB(30, 30, 48), Text = Color3.fromRGB(220, 220, 235), TextDim = Color3.fromRGB(140, 140, 160)}
+local function l(m, n, o)
+  o = (o or 0.15)
+  return (((math.abs((m.R - n.R)) < o) and (math.abs((m.G - n.G)) < o)) and (math.abs((m.B - n.B)) < o))
 end
-
-local function IsEnemy(player)
-	if Config.FFAMode then return true end
-	if player == LocalPlayer then return false end
-	local char = player.Character
-	if not char then return false end
-	for _, v in ipairs(char:GetDescendants()) do
-		if v:IsA("Highlight") and v.OutlineColor then
-			if IsColorClose(v.OutlineColor, Color3.fromRGB(255, 0, 0), 0.3) then return true end
-			if IsColorClose(v.OutlineColor, Color3.fromRGB(0, 255, 100), 0.3) then return false end
-		end
-	end
-	return false
+local function p(q)
+  if i.FFAMode then
+    return true
+  end
+  if (q == g) then
+    return false
+  end
+  local r = q.Character
+  if not r then
+    return false
+  end
+  for s, t in ipairs(r:GetDescendants()) do
+    if (t:IsA("Highlight") and t.OutlineColor) then
+      if l(t.OutlineColor, Color3.fromRGB(255, 0, 0), 0.3) then
+        return true
+      end
+      if l(t.OutlineColor, Color3.fromRGB(0, 255, 100), 0.3) then
+        return false
+      end
+    end
+  end
+  return false
 end
-
-local function GetDistance(player)
-	local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-	local tRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if myRoot and tRoot then return (myRoot.Position - tRoot.Position).Magnitude end
-	return 9999
+local function u(v)
+  local w = (g.Character and g.Character:FindFirstChild("HumanoidRootPart"))
+  local x = (v.Character and v.Character:FindFirstChild("HumanoidRootPart"))
+  if (w and x) then
+    return ((w.Position - x.Position)).Magnitude
+  end
+  return 9999
 end
-
-local function HasLineOfSight(target)
-	local myChar = LocalPlayer.Character
-	local tChar = target.Character
-	local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-	local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
-	if not myRoot or not tRoot then return false end
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = {myChar, tChar}
-	local result = Workspace:Raycast(myRoot.Position, (tRoot.Position - myRoot.Position), params)
-	return result == nil
+local function y(z)
+  local aa = g.Character
+  local ab = z.Character
+  local ac = (aa and aa:FindFirstChild("HumanoidRootPart"))
+  local ad = (ab and ab:FindFirstChild("HumanoidRootPart"))
+  if (not ac or not ad) then
+    return false
+  end
+  local ae = RaycastParams.new()
+  ae.FilterType = Enum.RaycastFilterType.Exclude
+  ae.FilterDescendantsInstances = {aa, ab}
+  local af = d:Raycast(ac.Position, ((ad.Position - ac.Position)), ae)
+  return (af == nil)
 end
-
-local function IsValidTarget(target)
-	if not target then return false end
-	local char = target.Character
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	local root = char and char:FindFirstChild("HumanoidRootPart")
-	return hum and root and hum.Health > 0
+local function ag(ah)
+  if not ah then
+    return false
+  end
+  local ai = ah.Character
+  local aj = (ai and ai:FindFirstChildOfClass("Humanoid"))
+  local ak = (ai and ai:FindFirstChild("HumanoidRootPart"))
+  return ((aj and ak) and (aj.Health > 0))
 end
-
--- AIMBOT
-local function FindTarget()
-	local best, bestDist = nil, math.huge
-	local myChar = LocalPlayer.Character
-	local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-	if not myRoot then return nil end
-	for _, p in ipairs(Players:GetPlayers()) do
-		if p ~= LocalPlayer and IsEnemy(p) then
-			local char = p.Character
-			local hum = char and char:FindFirstChildOfClass("Humanoid")
-			local root = char and char:FindFirstChild("HumanoidRootPart")
-			if hum and root and hum.Health > 0 then
-				local dist = (myRoot.Position - root.Position).Magnitude
-				if dist < bestDist and dist <= Config.MaxDistance then
-					if not Config.WallCheck or HasLineOfSight(p) then
-						bestDist = dist
-						best = p
-					end
-				end
-			end
-		end
-	end
-	return best
+local function al()
+  local am, an = nil, math.huge
+  local ao = g.Character
+  local ap = (ao and ao:FindFirstChild("HumanoidRootPart"))
+  if not ap then
+    return nil
+  end
+  for aq, ar in ipairs(Players:GetPlayers()) do
+    if ((ar ~= g) and p(ar)) then
+      local as = ar.Character
+      local at = (as and as:FindFirstChildOfClass("Humanoid"))
+      local au = (as and as:FindFirstChild("HumanoidRootPart"))
+      if ((at and au) and (at.Health > 0)) then
+        local av = ((ap.Position - au.Position)).Magnitude
+        if ((av < an) and (av <= i.MaxDistance)) then
+          if (not i.WallCheck or y(ar)) then
+            an = av
+            am = ar
+          end
+        end
+      end
+    end
+  end
+  return am
 end
-
-local function AimAtTarget(target)
-	if not Config.AimAssist then return end
-	if not target or not IsValidTarget(target) then return end
-	local partName = Config.AutoHeadshot and "Head" or Config.TargetPart
-	local part = target.Character:FindFirstChild(partName)
-	if not part then return end
-	Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, part.Position), Config.AimSmooth)
+local function aw(ax)
+  if not i.AimAssist then
+    return
+  end
+  if (not ax or not ag(ax)) then
+    return
+  end
+  local ay = ((i.AutoHeadshot and "Head") or i.TargetPart)
+  local az = ax.Character:FindFirstChild(ay)
+  if not az then
+    return
+  end
+  h.CFrame = h.CFrame:Lerp(CFrame.new(h.CFrame.Position, az.Position), i.AimSmooth)
 end
-
--- ESP PREMIUM
-local ESPGui = Instance.new("ScreenGui")
-ESPGui.Name = "E"
-ESPGui.ResetOnSpawn = false
-ESPGui.IgnoreGuiInset = true
-ESPGui.DisplayOrder = 998
-ESPGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
-local function RemoveESP(player)
-	local data = State.ESP[player]
-	if data then
-		pcall(function() data.Frame:Destroy() end)
-		pcall(function() data.Highlight:Destroy() end)
-		pcall(function() data.Tracer:Destroy() end)
-		pcall(function() data.Dot:Destroy() end)
-		pcall(function() data.DotGlow:Destroy() end)
-		pcall(function() data.Glow:Destroy() end)
-		State.ESP[player] = nil
-	end
+local ba = Instance.new("ScreenGui")
+ba.Name = "E"
+ba.ResetOnSpawn = false
+ba.IgnoreGuiInset = true
+ba.DisplayOrder = 998
+ba.Parent = g:WaitForChild("PlayerGui")
+local function bb(bc)
+  local bd = j.ESP[bc]
+  if bd then
+    pcall(function()
+      bd.Frame:Destroy()
+    end)
+    pcall(function()
+      bd.Highlight:Destroy()
+    end)
+    pcall(function()
+      bd.Tracer:Destroy()
+    end)
+    pcall(function()
+      bd.Dot:Destroy()
+    end)
+    pcall(function()
+      bd.DotGlow:Destroy()
+    end)
+    pcall(function()
+      bd.Glow:Destroy()
+    end)
+    j.ESP[bc] = nil
+  end
 end
-
-local function HideESP(player)
-	local data = State.ESP[player]
-	if data then
-		pcall(function()
-			data.Frame.Enabled = false
-			data.Highlight.Enabled = false
-			data.Tracer.Visible = false
-			data.Dot.Visible = false
-			data.Glow.Enabled = false
-		end)
-	end
+local function be(bf)
+  local bg = j.ESP[bf]
+  if bg then
+    pcall(function()
+      bg.Frame.Enabled = false
+      bg.Highlight.Enabled = false
+      bg.Tracer.Visible = false
+      bg.Dot.Visible = false
+      bg.Glow.Enabled = false
+    end)
+  end
 end
-
-local function ShowESP(player)
-	local data = State.ESP[player]
-	if data then
-		pcall(function()
-			data.Frame.Enabled = true
-			data.Highlight.Enabled = true
-			data.Glow.Enabled = true
-		end)
-	end
+local function bh(bi)
+  local bj = j.ESP[bi]
+  if bj then
+    pcall(function()
+      bj.Frame.Enabled = true
+      bj.Highlight.Enabled = true
+      bj.Glow.Enabled = true
+    end)
+  end
 end
-
-local function CreateESP(player)
-	if player == LocalPlayer then return end
-	if State.ESP[player] then return end
-	local char = player.Character
-	if not char then return end
-	local head = char:FindFirstChild("Head")
-	local root = char:FindFirstChild("HumanoidRootPart")
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	if not head or not root or not hum then return end
-
-	local isEnemy = IsEnemy(player)
-	local c = isEnemy and C.Enemy or C.Ally
-	local cB = isEnemy and C.EnemyBright or C.AllyBright
-	local cD = isEnemy and C.EnemyDark or C.AllyDark
-
-	-- BillboardGui
-	local bb = Instance.new("BillboardGui")
-	bb.Name = "B"
-	bb.Adornee = head
-	bb.Size = UDim2.new(0, 180, 0, 65)
-	bb.StudsOffset = Vector3.new(0, 3, 0)
-	bb.AlwaysOnTop = true
-	bb.MaxDistance = Config.MaxDistance
-	bb.Parent = ESPGui
-
-	-- Glow (outer shadow)
-	local glow = Instance.new("Frame", bb)
-	glow.Name = "Glow"
-	glow.Size = UDim2.new(1, 8, 1, 8)
-	glow.Position = UDim2.new(0, -4, 0, -4)
-	glow.BackgroundColor3 = c
-	glow.BackgroundTransparency = 0.9
-	glow.BorderSizePixel = 0
-	glow.ZIndex = 0
-	Instance.new("UICorner", glow).CornerRadius = UDim.new(0, 12)
-
-	-- Main card
-	local card = Instance.new("Frame", bb)
-	card.Name = "Card"
-	card.Size = UDim2.new(1, 0, 1, 0)
-	card.BackgroundColor3 = C.Dark
-	card.BackgroundTransparency = 0.55
-	card.BorderSizePixel = 0
-	card.ZIndex = 2
-	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
-	Instance.new("UIStroke", card).Color = c
-	Instance.new("UIStroke", card).Thickness = 1.5
-	Instance.new("UIStroke", card).Transparency = 0.4
-
-	-- Gradient overlay
-	local grad = Instance.new("Frame", card)
-	grad.Size = UDim2.new(1, 0, 0.5, 0)
-	grad.BackgroundColor3 = Color3.new(1, 1, 1)
-	grad.BackgroundTransparency = 0.92
-	grad.BorderSizePixel = 0
-	grad.ZIndex = 3
-
-	-- Color bar (left accent)
-	local bar = Instance.new("Frame", card)
-	bar.Name = "Bar"
-	bar.Size = UDim2.new(0, 4, 0.7, 0)
-	bar.Position = UDim2.new(0, 6, 0.15, 0)
-	bar.BackgroundColor3 = c
-	bar.BorderSizePixel = 0
-	bar.ZIndex = 4
-	Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 2)
-
-	-- Team badge
-	local badge = Instance.new("Frame", card)
-	badge.Size = UDim2.new(0, 44, 0, 13)
-	badge.Position = UDim2.new(1, -50, 0, 5)
-	badge.BackgroundColor3 = cD
-	badge.BackgroundTransparency = 0.3
-	badge.BorderSizePixel = 0
-	badge.ZIndex = 4
-	Instance.new("UICorner", badge).CornerRadius = UDim.new(0, 6)
-	Instance.new("UIStroke", badge).Color = c
-	Instance.new("UIStroke", badge).Thickness = 1
-	Instance.new("UIStroke", badge).Transparency = 0.5
-
-	local badgeText = Instance.new("TextLabel", badge)
-	badgeText.Size = UDim2.new(1, 0, 1, 0)
-	badgeText.BackgroundTransparency = 1
-	badgeText.Text = isEnemy and "ENEMY" or "ALLY"
-	badgeText.TextColor3 = cB
-	badgeText.Font = Enum.Font.GothamBlack
-	badgeText.TextSize = 8
-	badgeText.ZIndex = 5
-
-	-- Name
-	local nameLabel = Instance.new("TextLabel", card)
-	nameLabel.Name = "Name"
-	nameLabel.Size = UDim2.new(1, -60, 0, 16)
-	nameLabel.Position = UDim2.new(0, 16, 0, 6)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text = player.DisplayName
-	nameLabel.TextColor3 = C.Text
-	nameLabel.TextStrokeTransparency = 0
-	nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextSize = 13
-	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-	nameLabel.ZIndex = 4
-
-	-- Distance
-	local distLabel = Instance.new("TextLabel", card)
-	distLabel.Name = "Dist"
-	distLabel.Size = UDim2.new(0, 50, 0, 12)
-	distLabel.Position = UDim2.new(1, -55, 0, 20)
-	distLabel.BackgroundTransparency = 1
-	distLabel.Text = "0m"
-	distLabel.TextColor3 = C.TextDim
-	distLabel.TextStrokeTransparency = 0
-	distLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-	distLabel.Font = Enum.Font.GothamBold
-	distLabel.TextSize = 10
-	distLabel.TextXAlignment = Enum.TextXAlignment.Right
-	distLabel.ZIndex = 4
-
-	-- HP background
-	local hpBG = Instance.new("Frame", card)
-	hpBG.Size = UDim2.new(0.82, 0, 0, 7)
-	hpBG.Position = UDim2.new(0.09, 0, 0, 28)
-	hpBG.BackgroundColor3 = C.Dark3
-	hpBG.BorderSizePixel = 0
-	hpBG.ZIndex = 4
-	Instance.new("UICorner", hpBG).CornerRadius = UDim.new(0, 4)
-
-	-- HP fill
-	local hpFill = Instance.new("Frame", hpBG)
-	hpFill.Name = "Fill"
-	hpFill.Size = UDim2.new(1, 0, 1, 0)
-	hpFill.BackgroundColor3 = C.Green
-	hpFill.BorderSizePixel = 0
-	hpFill.ZIndex = 5
-	Instance.new("UICorner", hpFill).CornerRadius = UDim.new(0, 4)
-
-	-- HP shine
-	local hpShine = Instance.new("Frame", hpFill)
-	hpShine.Size = UDim2.new(1, 0, 0.4, 0)
-	hpShine.Position = UDim2.new(0, 0, 0, 0)
-	hpShine.BackgroundColor3 = Color3.new(1, 1, 1)
-	hpShine.BackgroundTransparency = 0.7
-	hpShine.BorderSizePixel = 0
-	hpShine.ZIndex = 6
-	Instance.new("UICorner", hpShine).CornerRadius = UDim.new(0, 4)
-
-	-- HP text
-	local hpLabel = Instance.new("TextLabel", card)
-	hpLabel.Name = "HP"
-	hpLabel.Size = UDim2.new(0.82, 0, 0, 10)
-	hpLabel.Position = UDim2.new(0.09, 0, 0, 37)
-	hpLabel.BackgroundTransparency = 1
-	hpLabel.Text = "100 HP"
-	hpLabel.TextColor3 = C.TextDim
-	hpLabel.TextStrokeTransparency = 0
-	hpLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-	hpLabel.Font = Enum.Font.Gotham
-	hpLabel.TextSize = 9
-	hpLabel.TextXAlignment = Enum.TextXAlignment.Left
-	hpLabel.ZIndex = 4
-
-	-- Status label
-	local statusLabel = Instance.new("TextLabel", card)
-	statusLabel.Name = "Status"
-	statusLabel.Size = UDim2.new(0.82, 0, 0, 8)
-	statusLabel.Position = UDim2.new(0.09, 0, 0, 48)
-	statusLabel.BackgroundTransparency = 1
-	statusLabel.Text = ""
-	statusLabel.TextColor3 = cB
-	statusLabel.TextStrokeTransparency = 0
-	statusLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-	statusLabel.Font = Enum.Font.GothamBold
-	statusLabel.TextSize = 8
-	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-	statusLabel.ZIndex = 4
-
-	-- Highlight
-	local hl = Instance.new("Highlight")
-	hl.Name = "H"
-	hl.Adornee = char
-	hl.FillColor = c
-	hl.FillTransparency = 0.75
-	hl.OutlineColor = cB
-	hl.OutlineTransparency = 0.15
-	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	hl.Parent = ESPGui
-
-	-- Tracer
-	local tracer = Instance.new("Frame", ESPGui)
-	tracer.Name = "T"
-	tracer.AnchorPoint = Vector2.new(0.5, 0.5)
-	tracer.BackgroundColor3 = c
-	tracer.BackgroundTransparency = 0.4
-	tracer.BorderSizePixel = 0
-	tracer.Visible = false
-
-	-- Tracer gradient
-	local tracerGrad = Instance.new("UIGradient", tracer)
-	tracerGrad.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.8),
-		NumberSequenceKeypoint.new(1, 0),
-	})
-	tracerGrad.Rotation = 90
-
-	-- Dot
-	local dot = Instance.new("Frame", ESPGui)
-	dot.Name = "D"
-	dot.AnchorPoint = Vector2.new(0.5, 0.5)
-	dot.Size = UDim2.fromOffset(8, 8)
-	dot.BackgroundColor3 = cB
-	dot.BorderSizePixel = 0
-	dot.Visible = false
-	Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
-
-	-- Dot glow
-	local dotGlow = Instance.new("Frame", ESPGui)
-	dotGlow.Name = "DG"
-	dotGlow.AnchorPoint = Vector2.new(0.5, 0.5)
-	dotGlow.Size = UDim2.fromOffset(14, 14)
-	dotGlow.BackgroundColor3 = c
-	dotGlow.BackgroundTransparency = 0.7
-	dotGlow.BorderSizePixel = 0
-	dotGlow.Visible = false
-	Instance.new("UICorner", dotGlow).CornerRadius = UDim.new(1, 0)
-
-	State.ESP[player] = {
-		Frame = bb, Highlight = hl, Tracer = tracer, Dot = dot, Glow = glow, DotGlow = dotGlow,
-		NameLabel = nameLabel, DistLabel = distLabel, HPLabel = hpLabel,
-		HPFill = hpFill, StatusLabel = statusLabel, Badge = badge, BadgeText = badgeText,
-		Bar = bar, EspColor = c, EspColorBright = cB, EspColorDark = cD, IsEnemy = isEnemy,
-	}
+local function bk(bl)
+  if (bl == g) then
+    return
+  end
+  if j.ESP[bl] then
+    return
+  end
+  local bm = bl.Character
+  if not bm then
+    return
+  end
+  local bn = bm:FindFirstChild("Head")
+  local bo = bm:FindFirstChild("HumanoidRootPart")
+  local bp = bm:FindFirstChildOfClass("Humanoid")
+  if ((not bn or not bo) or not bp) then
+    return
+  end
+  local bq = p(bl)
+  local br = ((bq and k.Enemy) or k.Ally)
+  local bs = ((bq and k.EnemyBright) or k.AllyBright)
+  local bt = ((bq and k.EnemyDark) or k.AllyDark)
+  local bu = Instance.new("BillboardGui")
+  bu.Name = "B"
+  bu.Adornee = bn
+  bu.Size = UDim2.new(0, 180, 0, 65)
+  bu.StudsOffset = Vector3.new(0, 3, 0)
+  bu.AlwaysOnTop = true
+  bu.MaxDistance = i.MaxDistance
+  bu.Parent = ba
+  local bv = Instance.new("Frame", bu)
+  bv.Name = "Glow"
+  bv.Size = UDim2.new(1, 8, 1, 8)
+  bv.Position = UDim2.new(0, -4, 0, -4)
+  bv.BackgroundColor3 = br
+  bv.BackgroundTransparency = 0.9
+  bv.BorderSizePixel = 0
+  bv.ZIndex = 0
+  Instance.new("UICorner", bv).CornerRadius = UDim.new(0, 12)
+  local bw = Instance.new("Frame", bu)
+  bw.Name = "Card"
+  bw.Size = UDim2.new(1, 0, 1, 0)
+  bw.BackgroundColor3 = k.Dark
+  bw.BackgroundTransparency = 0.55
+  bw.BorderSizePixel = 0
+  bw.ZIndex = 2
+  Instance.new("UICorner", bw).CornerRadius = UDim.new(0, 10)
+  Instance.new("UIStroke", bw).Color = br
+  Instance.new("UIStroke", bw).Thickness = 1.5
+  Instance.new("UIStroke", bw).Transparency = 0.4
+  local bx = Instance.new("Frame", bw)
+  bx.Size = UDim2.new(1, 0, 0.5, 0)
+  bx.BackgroundColor3 = Color3.new(1, 1, 1)
+  bx.BackgroundTransparency = 0.92
+  bx.BorderSizePixel = 0
+  bx.ZIndex = 3
+  local by = Instance.new("Frame", bw)
+  by.Name = "Bar"
+  by.Size = UDim2.new(0, 4, 0.7, 0)
+  by.Position = UDim2.new(0, 6, 0.15, 0)
+  by.BackgroundColor3 = br
+  by.BorderSizePixel = 0
+  by.ZIndex = 4
+  Instance.new("UICorner", by).CornerRadius = UDim.new(0, 2)
+  local bz = Instance.new("Frame", bw)
+  bz.Size = UDim2.new(0, 44, 0, 13)
+  bz.Position = UDim2.new(1, -50, 0, 5)
+  bz.BackgroundColor3 = bt
+  bz.BackgroundTransparency = 0.3
+  bz.BorderSizePixel = 0
+  bz.ZIndex = 4
+  Instance.new("UICorner", bz).CornerRadius = UDim.new(0, 6)
+  Instance.new("UIStroke", bz).Color = br
+  Instance.new("UIStroke", bz).Thickness = 1
+  Instance.new("UIStroke", bz).Transparency = 0.5
+  local ca = Instance.new("TextLabel", bz)
+  ca.Size = UDim2.new(1, 0, 1, 0)
+  ca.BackgroundTransparency = 1
+  ca.Text = ((bq and "ENEMY") or "ALLY")
+  ca.TextColor3 = bs
+  ca.Font = Enum.Font.GothamBlack
+  ca.TextSize = 8
+  ca.ZIndex = 5
+  local cb = Instance.new("TextLabel", bw)
+  cb.Name = "Name"
+  cb.Size = UDim2.new(1, -60, 0, 16)
+  cb.Position = UDim2.new(0, 16, 0, 6)
+  cb.BackgroundTransparency = 1
+  cb.Text = bl.DisplayName
+  cb.TextColor3 = k.Text
+  cb.TextStrokeTransparency = 0
+  cb.TextStrokeColor3 = Color3.new(0, 0, 0)
+  cb.Font = Enum.Font.GothamBold
+  cb.TextSize = 13
+  cb.TextXAlignment = Enum.TextXAlignment.Left
+  cb.TextTruncate = Enum.TextTruncate.AtEnd
+  cb.ZIndex = 4
+  local cc = Instance.new("TextLabel", bw)
+  cc.Name = "Dist"
+  cc.Size = UDim2.new(0, 50, 0, 12)
+  cc.Position = UDim2.new(1, -55, 0, 20)
+  cc.BackgroundTransparency = 1
+  cc.Text = "0m"
+  cc.TextColor3 = k.TextDim
+  cc.TextStrokeTransparency = 0
+  cc.TextStrokeColor3 = Color3.new(0, 0, 0)
+  cc.Font = Enum.Font.GothamBold
+  cc.TextSize = 10
+  cc.TextXAlignment = Enum.TextXAlignment.Right
+  cc.ZIndex = 4
+  local cd = Instance.new("Frame", bw)
+  cd.Size = UDim2.new(0.82, 0, 0, 7)
+  cd.Position = UDim2.new(0.09, 0, 0, 28)
+  cd.BackgroundColor3 = k.Dark3
+  cd.BorderSizePixel = 0
+  cd.ZIndex = 4
+  Instance.new("UICorner", cd).CornerRadius = UDim.new(0, 4)
+  local ce = Instance.new("Frame", cd)
+  ce.Name = "Fill"
+  ce.Size = UDim2.new(1, 0, 1, 0)
+  ce.BackgroundColor3 = k.Green
+  ce.BorderSizePixel = 0
+  ce.ZIndex = 5
+  Instance.new("UICorner", ce).CornerRadius = UDim.new(0, 4)
+  local cf = Instance.new("Frame", ce)
+  cf.Size = UDim2.new(1, 0, 0.4, 0)
+  cf.Position = UDim2.new(0, 0, 0, 0)
+  cf.BackgroundColor3 = Color3.new(1, 1, 1)
+  cf.BackgroundTransparency = 0.7
+  cf.BorderSizePixel = 0
+  cf.ZIndex = 6
+  Instance.new("UICorner", cf).CornerRadius = UDim.new(0, 4)
+  local cg = Instance.new("TextLabel", bw)
+  cg.Name = "HP"
+  cg.Size = UDim2.new(0.82, 0, 0, 10)
+  cg.Position = UDim2.new(0.09, 0, 0, 37)
+  cg.BackgroundTransparency = 1
+  cg.Text = "100 HP"
+  cg.TextColor3 = k.TextDim
+  cg.TextStrokeTransparency = 0
+  cg.TextStrokeColor3 = Color3.new(0, 0, 0)
+  cg.Font = Enum.Font.Gotham
+  cg.TextSize = 9
+  cg.TextXAlignment = Enum.TextXAlignment.Left
+  cg.ZIndex = 4
+  local ch = Instance.new("TextLabel", bw)
+  ch.Name = "Status"
+  ch.Size = UDim2.new(0.82, 0, 0, 8)
+  ch.Position = UDim2.new(0.09, 0, 0, 48)
+  ch.BackgroundTransparency = 1
+  ch.Text = ""
+  ch.TextColor3 = bs
+  ch.TextStrokeTransparency = 0
+  ch.TextStrokeColor3 = Color3.new(0, 0, 0)
+  ch.Font = Enum.Font.GothamBold
+  ch.TextSize = 8
+  ch.TextXAlignment = Enum.TextXAlignment.Left
+  ch.ZIndex = 4
+  local ci = Instance.new("Highlight")
+  ci.Name = "H"
+  ci.Adornee = bm
+  ci.FillColor = br
+  ci.FillTransparency = 0.75
+  ci.OutlineColor = bs
+  ci.OutlineTransparency = 0.15
+  ci.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+  ci.Parent = ba
+  local cj = Instance.new("Frame", ba)
+  cj.Name = "T"
+  cj.AnchorPoint = Vector2.new(0.5, 0.5)
+  cj.BackgroundColor3 = br
+  cj.BackgroundTransparency = 0.4
+  cj.BorderSizePixel = 0
+  cj.Visible = false
+  local ck = Instance.new("UIGradient", cj)
+  ck.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(1, 0)})
+  ck.Rotation = 90
+  local cl = Instance.new("Frame", ba)
+  cl.Name = "D"
+  cl.AnchorPoint = Vector2.new(0.5, 0.5)
+  cl.Size = UDim2.fromOffset(8, 8)
+  cl.BackgroundColor3 = bs
+  cl.BorderSizePixel = 0
+  cl.Visible = false
+  Instance.new("UICorner", cl).CornerRadius = UDim.new(1, 0)
+  local cm = Instance.new("Frame", ba)
+  cm.Name = "DG"
+  cm.AnchorPoint = Vector2.new(0.5, 0.5)
+  cm.Size = UDim2.fromOffset(14, 14)
+  cm.BackgroundColor3 = br
+  cm.BackgroundTransparency = 0.7
+  cm.BorderSizePixel = 0
+  cm.Visible = false
+  Instance.new("UICorner", cm).CornerRadius = UDim.new(1, 0)
+  j.ESP[bl] = {Frame = bu, Highlight = ci, Tracer = cj, Dot = cl, Glow = bv, DotGlow = cm, NameLabel = cb, DistLabel = cc, HPLabel = cg, HPFill = ce, StatusLabel = ch, Badge = bz, BadgeText = ca, Bar = by, EspColor = br, EspColorBright = bs, EspColorDark = bt, IsEnemy = bq}
 end
-
-local function UpdateESP(player)
-	if player == LocalPlayer then return end
-	local char = player.Character
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	local root = char and char:FindFirstChild("HumanoidRootPart")
-	if not char or not hum or not root or hum.Health <= 0 then RemoveESP(player) return end
-	local dist = GetDistance(player)
-	if dist > Config.MaxDistance then HideESP(player) return end
-
-	local data = State.ESP[player]
-	local isEnemy = IsEnemy(player)
-	if data and data.IsEnemy ~= isEnemy then RemoveESP(player) data = nil end
-	if not data then CreateESP(player) data = State.ESP[player] end
-	if not data then return end
-	ShowESP(player)
-
-	local c = data.EspColor
-	local cB = data.EspColorBright
-	local cD = data.EspColorDark
-
-	pcall(function()
-		data.Highlight.Adornee = char
-		data.Highlight.FillColor = c
-		data.Highlight.OutlineColor = cB
-		data.Bar.BackgroundColor3 = c
-		data.Badge.BackgroundColor3 = cD
-		data.BadgeText.TextColor3 = cB
-		data.BadgeText.Text = isEnemy and "ENEMY" or "ALLY"
-		data.Tracer.BackgroundColor3 = c
-		data.Dot.BackgroundColor3 = cB
-		data.DotGlow.BackgroundColor3 = c
-	end)
-
-	local hpPct = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
-	pcall(function()
-		data.DistLabel.Text = math.floor(dist) .. "m"
-		data.HPLabel.Text = math.floor(hum.Health) .. " HP"
-		if hpPct > 0.6 then data.HPFill.BackgroundColor3 = C.Green
-		elseif hpPct > 0.3 then data.HPFill.BackgroundColor3 = C.Yellow
-		else data.HPFill.BackgroundColor3 = C.Red end
-		data.HPFill.Size = UDim2.new(hpPct, 0, 1, 0)
-		if hpPct <= 0 then data.StatusLabel.Text = "ELIMINATED"
-		elseif hpPct < 0.3 then data.StatusLabel.Text = "CRITICAL"
-		else data.StatusLabel.Text = "" end
-	end)
-
-	pcall(function()
-		local sp, onScreen = Camera:WorldToViewportPoint(root.Position)
-		if onScreen and sp.Z > 0 then
-			local sc = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-			local sp2 = Vector2.new(sp.X, sp.Y)
-			local diff = sp2 - sc
-			data.Tracer.Position = UDim2.fromOffset((sc.X + sp2.X) / 2, (sc.Y + sp2.Y) / 2)
-			data.Tracer.Size = UDim2.fromOffset(2, diff.Magnitude)
-			data.Tracer.Rotation = math.deg(math.atan2(diff.Y, diff.X)) + 90
-			data.Tracer.Visible = Config.ESPTracer
-			data.Dot.Position = UDim2.fromOffset(sp.X, sp.Y)
-			data.Dot.Visible = Config.ESPDot
-			data.DotGlow.Position = UDim2.fromOffset(sp.X, sp.Y)
-			data.DotGlow.Visible = Config.ESPDot
-		else
-			data.Tracer.Visible = false
-			data.Dot.Visible = false
-			data.DotGlow.Visible = false
-		end
-	end)
+local function cn(co)
+  if (co == g) then
+    return
+  end
+  local cp = co.Character
+  local cq = (cp and cp:FindFirstChildOfClass("Humanoid"))
+  local cr = (cp and cp:FindFirstChild("HumanoidRootPart"))
+  if (((not cp or not cq) or not cr) or (cq.Health <= 0)) then
+    bb(co)
+    return
+  end
+  local cs = u(co)
+  if (cs > i.MaxDistance) then
+    be(co)
+    return
+  end
+  local ct = j.ESP[co]
+  local cu = p(co)
+  if (ct and (ct.IsEnemy ~= cu)) then
+    bb(co)
+    ct = nil
+  end
+  if not ct then
+    bk(co)
+    ct = j.ESP[co]
+  end
+  if not ct then
+    return
+  end
+  bh(co)
+  local cv = ct.EspColor
+  local cw = ct.EspColorBright
+  local cx = ct.EspColorDark
+  pcall(function()
+    ct.Highlight.Adornee = cp
+    ct.Highlight.FillColor = cv
+    ct.Highlight.OutlineColor = cw
+    ct.Bar.BackgroundColor3 = cv
+    ct.Badge.BackgroundColor3 = cx
+    ct.BadgeText.TextColor3 = cw
+    ct.BadgeText.Text = ((cu and "ENEMY") or "ALLY")
+    ct.Tracer.BackgroundColor3 = cv
+    ct.Dot.BackgroundColor3 = cw
+    ct.DotGlow.BackgroundColor3 = cv
+  end)
+  local cy = math.clamp((cq.Health / math.max(cq.MaxHealth, 1)), 0, 1)
+  pcall(function()
+    ct.DistLabel.Text = (math.floor(cs) .. "m")
+    ct.HPLabel.Text = (math.floor(cq.Health) .. " HP")
+    if (cy > 0.6) then
+      ct.HPFill.BackgroundColor3 = k.Green
+    elseif (cy > 0.3) then
+      ct.HPFill.BackgroundColor3 = k.Yellow
+    else
+      ct.HPFill.BackgroundColor3 = k.Red
+    end
+    ct.HPFill.Size = UDim2.new(cy, 0, 1, 0)
+    if (cy <= 0) then
+      ct.StatusLabel.Text = "ELIMINATED"
+    elseif (cy < 0.3) then
+      ct.StatusLabel.Text = "CRITICAL"
+    else
+      ct.StatusLabel.Text = ""
+    end
+  end)
+  pcall(function()
+    local cz, da = h:WorldToViewportPoint(cr.Position)
+    if (da and (cz.Z > 0)) then
+      local db = Vector2.new((h.ViewportSize.X / 2), h.ViewportSize.Y)
+      local dc = Vector2.new(cz.X, cz.Y)
+      local dd = (dc - db)
+      ct.Tracer.Position = UDim2.fromOffset((((db.X + dc.X)) / 2), (((db.Y + dc.Y)) / 2))
+      ct.Tracer.Size = UDim2.fromOffset(2, dd.Magnitude)
+      ct.Tracer.Rotation = (math.deg(math.atan2(dd.Y, dd.X)) + 90)
+      ct.Tracer.Visible = i.ESPTracer
+      ct.Dot.Position = UDim2.fromOffset(cz.X, cz.Y)
+      ct.Dot.Visible = i.ESPDot
+      ct.DotGlow.Position = UDim2.fromOffset(cz.X, cz.Y)
+      ct.DotGlow.Visible = i.ESPDot
+    else
+      ct.Tracer.Visible = false
+      ct.Dot.Visible = false
+      ct.DotGlow.Visible = false
+    end
+  end)
 end
-
-local function UpdateAllESP()
-	if not Config.ESP then for p in pairs(State.ESP) do RemoveESP(p) end return end
-	for _, p in ipairs(Players:GetPlayers()) do
-		if p ~= LocalPlayer then UpdateESP(p) end
-	end
+local function de()
+  if not i.ESP then
+    for df in pairs(j.ESP) do
+      bb(df)
+    end
+    return
+  end
+  for dg, dh in ipairs(Players:GetPlayers()) do
+    if (dh ~= g) then
+      cn(dh)
+    end
+  end
 end
-
--- GPS PREMIUM
-local GPSFrame = Instance.new("Frame")
-GPSFrame.Size = UDim2.new(0, 140, 0, 80)
-GPSFrame.Position = UDim2.new(1, -155, 0, 15)
-GPSFrame.BackgroundColor3 = C.Dark
-GPSFrame.BackgroundTransparency = 0.2
-GPSFrame.BorderSizePixel = 0
-GPSFrame.Visible = false
-GPSFrame.Parent = ESPGui
-Instance.new("UICorner", GPSFrame).CornerRadius = UDim.new(0, 12)
-Instance.new("UIStroke", GPSFrame).Color = C.Accent
-Instance.new("UIStroke", GPSFrame).Thickness = 1.5
-Instance.new("UIStroke", GPSFrame).Transparency = 0.3
-
--- GPS gradient
-local gpsGrad = Instance.new("Frame", GPSFrame)
-gpsGrad.Size = UDim2.new(1, 0, 0.4, 0)
-gpsGrad.BackgroundColor3 = Color3.new(1, 1, 1)
-gpsGrad.BackgroundTransparency = 0.92
-gpsGrad.BorderSizePixel = 0
-
-local GPSArrow = Instance.new("TextLabel", GPSFrame)
-GPSArrow.Size = UDim2.new(1, 0, 0, 28)
-GPSArrow.Position = UDim2.new(0, 0, 0, 6)
-GPSArrow.BackgroundTransparency = 1
-GPSArrow.Text = "\226\136\128"
-GPSArrow.TextColor3 = C.Green
-GPSArrow.TextStrokeTransparency = 0
-GPSArrow.TextStrokeColor3 = Color3.new(0, 0, 0)
-GPSArrow.Font = Enum.Font.GothamBlack
-GPSArrow.TextSize = 22
-
-local GPSDist = Instance.new("TextLabel", GPSFrame)
-GPSDist.Size = UDim2.new(1, 0, 0, 16)
-GPSDist.Position = UDim2.new(0, 0, 0, 36)
-GPSDist.BackgroundTransparency = 1
-GPSDist.Text = "--"
-GPSDist.TextColor3 = C.AccentBright
-GPSDist.TextStrokeTransparency = 0
-GPSDist.TextStrokeColor3 = Color3.new(0, 0, 0)
-GPSDist.Font = Enum.Font.GothamBold
-GPSDist.TextSize = 12
-
-local GPSName = Instance.new("TextLabel", GPSFrame)
-GPSName.Size = UDim2.new(1, -10, 0, 14)
-GPSName.Position = UDim2.new(0, 5, 0, 55)
-GPSName.BackgroundTransparency = 1
-GPSName.Text = "procurando..."
-GPSName.TextColor3 = C.TextDim
-GPSName.TextStrokeTransparency = 0
-GPSName.TextStrokeColor3 = Color3.new(0, 0, 0)
-GPSName.Font = Enum.Font.Gotham
-GPSName.TextSize = 9
-GPSName.TextTruncate = Enum.TextTruncate.AtEnd
-
--- EXPLOITS
-RunService.Stepped:Connect(function()
-	if Config.Noclip then
-		local char = LocalPlayer.Character
-		if char then
-			for _, part in ipairs(char:GetDescendants()) do
-				if part:IsA("BasePart") then part.CanCollide = false end
-			end
-		end
-	end
+local di = Instance.new("Frame")
+di.Size = UDim2.new(0, 140, 0, 80)
+di.Position = UDim2.new(1, -155, 0, 15)
+di.BackgroundColor3 = k.Dark
+di.BackgroundTransparency = 0.2
+di.BorderSizePixel = 0
+di.Visible = false
+di.Parent = ba
+Instance.new("UICorner", di).CornerRadius = UDim.new(0, 12)
+Instance.new("UIStroke", di).Color = k.Accent
+Instance.new("UIStroke", di).Thickness = 1.5
+Instance.new("UIStroke", di).Transparency = 0.3
+local dj = Instance.new("Frame", di)
+dj.Size = UDim2.new(1, 0, 0.4, 0)
+dj.BackgroundColor3 = Color3.new(1, 1, 1)
+dj.BackgroundTransparency = 0.92
+dj.BorderSizePixel = 0
+local dk = Instance.new("TextLabel", di)
+dk.Size = UDim2.new(1, 0, 0, 28)
+dk.Position = UDim2.new(0, 0, 0, 6)
+dk.BackgroundTransparency = 1
+dk.Text = "â"
+dk.TextColor3 = k.Green
+dk.TextStrokeTransparency = 0
+dk.TextStrokeColor3 = Color3.new(0, 0, 0)
+dk.Font = Enum.Font.GothamBlack
+dk.TextSize = 22
+local dl = Instance.new("TextLabel", di)
+dl.Size = UDim2.new(1, 0, 0, 16)
+dl.Position = UDim2.new(0, 0, 0, 36)
+dl.BackgroundTransparency = 1
+dl.Text = "--"
+dl.TextColor3 = k.AccentBright
+dl.TextStrokeTransparency = 0
+dl.TextStrokeColor3 = Color3.new(0, 0, 0)
+dl.Font = Enum.Font.GothamBold
+dl.TextSize = 12
+local dm = Instance.new("TextLabel", di)
+dm.Size = UDim2.new(1, -10, 0, 14)
+dm.Position = UDim2.new(0, 5, 0, 55)
+dm.BackgroundTransparency = 1
+dm.Text = "procurando..."
+dm.TextColor3 = k.TextDim
+dm.TextStrokeTransparency = 0
+dm.TextStrokeColor3 = Color3.new(0, 0, 0)
+dm.Font = Enum.Font.Gotham
+dm.TextSize = 9
+dm.TextTruncate = Enum.TextTruncate.AtEnd
+b.Stepped:Connect(function()
+  if i.Noclip then
+    local dn = g.Character
+    if dn then
+      for dp, dq in ipairs(dn:GetDescendants()) do
+        if dq:IsA("BasePart") then
+          dq.CanCollide = false
+        end
+      end
+    end
+  end
 end)
-
-local function SetFullbright(on)
-	Config.Fullbright = on
-	if on then
-		Lighting.Brightness = 2
-		Lighting.Ambient = Color3.fromRGB(178, 178, 178)
-		Lighting.OutdoorAmbient = Color3.fromRGB(178, 178, 178)
-		Lighting.FogEnd = 100000
-	else
-		Lighting.Brightness = 1
-		Lighting.Ambient = Color3.fromRGB(70, 70, 70)
-		Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
-		Lighting.FogEnd = 100000
-	end
+local function dr(ds)
+  i.Fullbright = ds
+  if ds then
+    e.Brightness = 2
+    e.Ambient = Color3.fromRGB(178, 178, 178)
+    e.OutdoorAmbient = Color3.fromRGB(178, 178, 178)
+    e.FogEnd = 100000
+  else
+    e.Brightness = 1
+    e.Ambient = Color3.fromRGB(70, 70, 70)
+    e.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+    e.FogEnd = 100000
+  end
 end
-
-local function SetSpeed(on)
-	Config.SpeedBoost = on
-	local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-	if hum then hum.WalkSpeed = on and 32 or 16 end
+local function dt(du)
+  i.SpeedBoost = du
+  local dv = (g.Character and g.Character:FindFirstChildOfClass("Humanoid"))
+  if dv then
+    dv.WalkSpeed = ((du and 32) or 16)
+  end
 end
-
-local function TeleportToEnemy()
-	local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-	if not root then return end
-	local best, bestDist
-	for _, p in ipairs(Players:GetPlayers()) do
-		if p ~= LocalPlayer and IsEnemy(p) then
-			local tRoot = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-			local tHum = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
-			if tRoot and tHum and tHum.Health > 0 then
-				local d = (root.Position - tRoot.Position).Magnitude
-				if d < Config.MaxDistance and (not bestDist or d < bestDist) then
-					best = p
-					bestDist = d
-				end
-			end
-		end
-	end
-	if best and best.Character and best.Character:FindFirstChild("HumanoidRootPart") then
-		root.CFrame = best.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -4)
-		ShadowHub:Notify("Teleport", best.DisplayName, "success", 2)
-	end
+local function dw()
+  local dx = (g.Character and g.Character:FindFirstChild("HumanoidRootPart"))
+  if not dx then
+    return
+  end
+  local dy, dz
+  for ea, eb in ipairs(Players:GetPlayers()) do
+    if ((eb ~= g) and p(eb)) then
+      local ec = (eb.Character and eb.Character:FindFirstChild("HumanoidRootPart"))
+      local ed = (eb.Character and eb.Character:FindFirstChildOfClass("Humanoid"))
+      if ((ec and ed) and (ed.Health > 0)) then
+        local ee = ((dx.Position - ec.Position)).Magnitude
+        if ((ee < i.MaxDistance) and ((not dz or (ee < dz)))) then
+          dy = eb
+          dz = ee
+        end
+      end
+    end
+  end
+  if ((dy and dy.Character) and dy.Character:FindFirstChild("HumanoidRootPart")) then
+    dx.CFrame = (dy.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -4))
+    a:Notify("Teleport", dy.DisplayName, "success", 2)
+  end
 end
-
--- PLAYER MONITOR
-local function MonitorPlayer(player)
-	if player == LocalPlayer then return end
-	State.LastHP[player] = 100
-	local function onCharacter(char)
-		local hum = char:WaitForChild("Humanoid", 10)
-		if not hum then return end
-		State.LastHP[player] = hum.Health
-		hum.HealthChanged:Connect(function(newHP)
-			local oldHP = State.LastHP[player] or newHP
-			State.LastHP[player] = newHP
-			if oldHP > 0 and newHP <= 0 then
-				task.delay(0.1, function() RemoveESP(player) end)
-				local dist = GetDistance(player)
-				if State.Target == player or dist < 80 then
-					State.Kills += 1
-					State.Streak += 1
-					if Config.HitSound then
-						pcall(function()
-							local s = Instance.new("Sound")
-							s.SoundId = "rbxassetid://5765660795"
-							s.Volume = 0.5
-							s.Parent = Camera
-							s:Play()
-							game:GetService("Debris"):AddItem(s, 2)
-						end)
-					end
-					if Config.KillNotify then ShadowHub:Notify("Kill", player.DisplayName, "kill", 3) end
-					if State.Target == player then State.Target = nil end
-					if State.Streak == 3 then ShadowHub:Notify("Streak!", "3x", "streak", 3) end
-					if State.Streak == 5 then ShadowHub:Notify("Streak!", "5x", "streak", 3) end
-					if State.Streak == 10 then ShadowHub:Notify("Unstoppable!", "10x", "streak", 4) end
-				end
-			end
-		end)
-	end
-	if player.Character then task.spawn(onCharacter, player.Character) end
-	player.CharacterAdded:Connect(function(char)
-		task.wait(0.5)
-		onCharacter(char)
-		task.wait(0.3)
-		RemoveESP(player)
-	end)
+local function ef(eg)
+  if (eg == g) then
+    return
+  end
+  j.LastHP[eg] = 100
+  local function eh(ei)
+    local ej = ei:WaitForChild("Humanoid", 10)
+    if not ej then
+      return
+    end
+    j.LastHP[eg] = ej.Health
+    ej.HealthChanged:Connect(function(ek)
+      local el = (j.LastHP[eg] or ek)
+      j.LastHP[eg] = ek
+      if ((el > 0) and (ek <= 0)) then
+        task.delay(0.1, function()
+          bb(eg)
+        end)
+        local em = u(eg)
+        if ((j.Target == eg) or (em < 80)) then
+          j.Kills += 1
+          j.Streak += 1
+          if i.HitSound then
+            pcall(function()
+              local en = Instance.new("Sound")
+              en.SoundId = "rbxassetid://5765660795"
+              en.Volume = 0.5
+              en.Parent = h
+              en:Play()
+              game:GetService("Debris"):AddItem(en, 2)
+            end)
+          end
+          if i.KillNotify then
+            a:Notify("Kill", eg.DisplayName, "kill", 3)
+          end
+          if (j.Target == eg) then
+            j.Target = nil
+          end
+          if (j.Streak == 3) then
+            a:Notify("Streak!", "3x", "streak", 3)
+          end
+          if (j.Streak == 5) then
+            a:Notify("Streak!", "5x", "streak", 3)
+          end
+          if (j.Streak == 10) then
+            a:Notify("Unstoppable!", "10x", "streak", 4)
+          end
+        end
+      end
+    end)
+  end
+  if eg.Character then
+    task.spawn(eh, eg.Character)
+  end
+  eg.CharacterAdded:Connect(function(eo)
+    task.wait(0.5)
+    eh(eo)
+    task.wait(0.3)
+    bb(eg)
+  end)
 end
-
-for _, p in ipairs(Players:GetPlayers()) do MonitorPlayer(p) end
-Players.PlayerAdded:Connect(MonitorPlayer)
-
-LocalPlayer.CharacterAdded:Connect(function(char)
-	State.Streak = 0
-	local hum = char:WaitForChild("Humanoid", 10)
-	if hum then hum.Died:Connect(function() State.Streak = 0 end) end
-	if Config.SpeedBoost then
-		local h = char:WaitForChild("Humanoid", 5)
-		if h then h.WalkSpeed = 32 end
-	end
+for ep, eq in ipairs(Players:GetPlayers()) do
+  ef(eq)
+end
+Players.PlayerAdded:Connect(ef)
+g.CharacterAdded:Connect(function(er)
+  j.Streak = 0
+  local es = er:WaitForChild("Humanoid", 10)
+  if es then
+    es.Died:Connect(function()
+      j.Streak = 0
+    end)
+  end
+  if i.SpeedBoost then
+    local et = er:WaitForChild("Humanoid", 5)
+    if et then
+      et.WalkSpeed = 32
+    end
+  end
 end)
-
-Players.PlayerRemoving:Connect(function(p)
-	RemoveESP(p)
-	if State.Target == p then State.Target = nil end
-	State.LastHP[p] = nil
+Players.PlayerRemoving:Connect(function(eu)
+  bb(eu)
+  if (j.Target == eu) then
+    j.Target = nil
+  end
+  j.LastHP[eu] = nil
 end)
-
--- BUILD MENU
-local menu = ShadowHub:CreateWindow("SH")
-
-local s1 = menu:Section("COMBATE")
-menu:Toggle(s1, "ESP", true, function(v)
-	Config.ESP = v
-	if not v then for p in pairs(State.ESP) do RemoveESP(p) end end
+local ev = a:CreateWindow("SH")
+local ew = ev:Section("COMBATE")
+ev:Toggle(ew, "ESP", true, function(ex)
+  i.ESP = ex
+  if not ex then
+    for ey in pairs(j.ESP) do
+      bb(ey)
+    end
+  end
 end)
-menu:Toggle(s1, "  Tracer", true, function(v) Config.ESPTracer = v end)
-menu:Toggle(s1, "  Dot", true, function(v) Config.ESPDot = v end)
-menu:Toggle(s1, "Aimbot", false, function(v) Config.AimAssist = v end)
-menu:Label(s1, "Sempre ativo quando ligado")
-menu:Toggle(s1, "Target Lock", false, function(v)
-	Config.TargetLock = v
-	if v then State.Target = FindTarget() else State.Target = nil end
+ev:Toggle(ew, "  Tracer", true, function(ez)
+  i.ESPTracer = ez
 end)
-menu:Toggle(s1, "Wall Check", true, function(v) Config.WallCheck = v end)
-menu:Label(s1, "Nao mira atraves de parede")
-menu:Toggle(s1, "Auto Headshot", false, function(v) Config.AutoHeadshot = v end)
-menu:Slider(s1, "Smoothness", 1, 50, 15, function(v) Config.AimSmooth = v / 100 end)
-menu:Label(s1, "Mais alto = mais grude")
-menu:Slider(s1, "Distance", 50, 5000, 2000, function(v) Config.MaxDistance = v end)
-
-local s3 = menu:Section("UTIL")
-menu:Toggle(s3, "GPS", false, function(v) Config.MiniGPS = v GPSFrame.Visible = v end)
-menu:Toggle(s3, "Kill Notif", true, function(v) Config.KillNotify = v end)
-menu:Toggle(s3, "Hit Sound", true, function(v) Config.HitSound = v end)
-menu:Toggle(s3, "FFA Mode", true, function(v) Config.FFAMode = v end)
-menu:Button(s3, "Teleport", TeleportToEnemy)
-
-local s4 = menu:Section("EXPLOITS")
-menu:Toggle(s4, "Noclip", false, function(v) Config.Noclip = v end)
-menu:Toggle(s4, "Fullbright", false, function(v) SetFullbright(v) end)
-menu:Toggle(s4, "Speed", false, function(v) SetSpeed(v) end)
-menu:Toggle(s4, "Spin Bot", false, function(v) Config.SpinBot = v State.SpinAngle = 0 end)
-menu:Slider(s4, "Spin", 5, 120, 30, function(v) Config.SpinSpeed = v end)
-menu:Slider(s4, "FOV", 30, 120, 70, function(v) Config.FOV = v Camera.FieldOfView = v end)
-
-local status = menu:StatusBar("K: 0 | S: 0")
-
--- MAIN LOOP
-RunService.RenderStepped:Connect(function(dt)
-	UpdateAllESP()
-
-	if Config.AimAssist then
-		local target = FindTarget()
-		if Config.TargetLock then
-			if not IsValidTarget(State.Target) then State.Target = target end
-		else
-			State.Target = target
-		end
-		AimAtTarget(State.Target)
-	else
-		State.Target = nil
-	end
-
-	if Config.SpinBot then
-		local char = LocalPlayer.Character
-		local root = char and char:FindFirstChild("HumanoidRootPart")
-		if root then
-			State.SpinAngle += Config.SpinSpeed * dt
-			root.CFrame = CFrame.new(root.Position) * CFrame.Angles(0, math.rad(State.SpinAngle), 0)
-		end
-	end
-
-	if Config.MiniGPS then
-		GPSFrame.Visible = true
-		local myChar = LocalPlayer.Character
-		local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-		local gpsTarget = State.Target or FindTarget()
-		if gpsTarget and myRoot then
-			local tRoot = gpsTarget.Character and gpsTarget.Character:FindFirstChild("HumanoidRootPart")
-			if tRoot then
-				local dist = (myRoot.Position - tRoot.Position).Magnitude
-				local dir = (tRoot.Position - myRoot.Position).Unit
-				local look = myRoot.CFrame.LookVector
-				local angle = math.atan2(dir.X * look.Z - dir.Z * look.X, dir.X * look.X + dir.Z * look.Z)
-				GPSArrow.Rotation = -math.deg(angle)
-				GPSDist.Text = math.floor(dist) .. "m"
-				GPSName.Text = gpsTarget.DisplayName
-			end
-		end
-	else
-		GPSFrame.Visible = false
-	end
-
-	pcall(function() Camera.FieldOfView = Config.FOV end)
-	status:SetText("K: " .. State.Kills .. " | S: " .. State.Streak)
+ev:Toggle(ew, "  Dot", true, function(fa)
+  i.ESPDot = fa
 end)
-
-StarterGui:SetCore("SendNotification", {
-	Title = "SH",
-	Text = "Pronto!",
-	Duration = 2,
-})
+ev:Toggle(ew, "Aimbot", false, function(fb)
+  i.AimAssist = fb
+end)
+ev:Label(ew, "Sempre ativo quando ligado")
+ev:Toggle(ew, "Target Lock", false, function(fc)
+  i.TargetLock = fc
+  if fc then
+    j.Target = al()
+  else
+    j.Target = nil
+  end
+end)
+ev:Toggle(ew, "Wall Check", true, function(fd)
+  i.WallCheck = fd
+end)
+ev:Label(ew, "Nao mira atraves de parede")
+ev:Toggle(ew, "Auto Headshot", false, function(fe)
+  i.AutoHeadshot = fe
+end)
+ev:Slider(ew, "Smoothness", 1, 50, 15, function(ff)
+  i.AimSmooth = (ff / 100)
+end)
+ev:Label(ew, "Mais alto = mais grude")
+ev:Slider(ew, "Distance", 50, 5000, 2000, function(fg)
+  i.MaxDistance = fg
+end)
+local fh = ev:Section("UTIL")
+ev:Toggle(fh, "GPS", false, function(fi)
+  i.MiniGPS = fi
+  di.Visible = fi
+end)
+ev:Toggle(fh, "Kill Notif", true, function(fj)
+  i.KillNotify = fj
+end)
+ev:Toggle(fh, "Hit Sound", true, function(fk)
+  i.HitSound = fk
+end)
+ev:Toggle(fh, "FFA Mode", true, function(fl)
+  i.FFAMode = fl
+end)
+ev:Button(fh, "Teleport", dw)
+local fm = ev:Section("EXPLOITS")
+ev:Toggle(fm, "Noclip", false, function(fn)
+  i.Noclip = fn
+end)
+ev:Toggle(fm, "Fullbright", false, function(fo)
+  dr(fo)
+end)
+ev:Toggle(fm, "Speed", false, function(fp)
+  dt(fp)
+end)
+ev:Toggle(fm, "Spin Bot", false, function(fq)
+  i.SpinBot = fq
+  j.SpinAngle = 0
+end)
+ev:Slider(fm, "Spin", 5, 120, 30, function(fr)
+  i.SpinSpeed = fr
+end)
+ev:Slider(fm, "FOV", 30, 120, 70, function(fs)
+  i.FOV = fs
+  h.FieldOfView = fs
+end)
+local ft = ev:StatusBar("K: 0 | S: 0")
+b.RenderStepped:Connect(function(fu)
+  de()
+  if i.AimAssist then
+    local fv = al()
+    if i.TargetLock then
+      if not ag(j.Target) then
+        j.Target = fv
+      end
+    else
+      j.Target = fv
+    end
+    aw(j.Target)
+  else
+    j.Target = nil
+  end
+  if i.SpinBot then
+    local fw = g.Character
+    local fx = (fw and fw:FindFirstChild("HumanoidRootPart"))
+    if fx then
+      j.SpinAngle += (i.SpinSpeed * fu)
+      fx.CFrame = (CFrame.new(fx.Position) * CFrame.Angles(0, math.rad(j.SpinAngle), 0))
+    end
+  end
+  if i.MiniGPS then
+    di.Visible = true
+    local fy = g.Character
+    local fz = (fy and fy:FindFirstChild("HumanoidRootPart"))
+    local ga = (j.Target or al())
+    if (ga and fz) then
+      local gb = (ga.Character and ga.Character:FindFirstChild("HumanoidRootPart"))
+      if gb then
+        local gc = ((fz.Position - gb.Position)).Magnitude
+        local gd = ((gb.Position - fz.Position)).Unit
+        local ge = fz.CFrame.LookVector
+        local gf = math.atan2(((gd.X * ge.Z) - (gd.Z * ge.X)), ((gd.X * ge.X) + (gd.Z * ge.Z)))
+        dk.Rotation = -math.deg(gf)
+        dl.Text = (math.floor(gc) .. "m")
+        dm.Text = ga.DisplayName
+      end
+    end
+  else
+    di.Visible = false
+  end
+  pcall(function()
+    h.FieldOfView = i.FOV
+  end)
+  ft:SetText(("K: " .. (j.Kills .. (" | S: " .. j.Streak))))
+end)
+f:SetCore("SendNotification", {Title = "SH", Text = "Pronto!", Duration = 2})
 print("[SH] Ready!")
