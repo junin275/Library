@@ -724,6 +724,8 @@ menu:Toggle(s3, "GPS", false, function(v) Config.MiniGPS = v GPSFrame.Visible = 
 menu:Toggle(s3, "Kill Notif", true, function(v) Config.KillNotify = v end)
 menu:Toggle(s3, "Hit Sound", true, function(v) Config.HitSound = v end)
 menu:Toggle(s3, "FFA Mode", true, function(v) Config.FFAMode = v end)
+menu:Toggle(s3, "Stealth Mode", false, function(v) menu:SetStealthMode(v) end)
+menu:Label(s3, "Icone invisivel mas clicavel/arrastavel")
 menu:Button(s3, "Teleport", TeleportToEnemy)
 
 local s4 = menu:Section("EXPLOITS")

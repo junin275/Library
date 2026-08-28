@@ -161,6 +161,7 @@ function ShadowHub:CreateWindow(title, opts)
 	self._activeSection = nil
 	self._sectionFrames = {}
 	self._loaded = false
+	self._stealthMode = false
 
 	-- ScreenGui
 	self._gui = Instance.new("ScreenGui")
@@ -190,7 +191,7 @@ function ShadowHub:CreateWindow(title, opts)
 		self._loaded = true
 	end)
 
-	-- Icon (launcher pill)
+	-- Icon (launcher pill) - supports stealth mode
 	self._icon = Instance.new("TextButton")
 	self._icon.Name = "HubIcon"
 	self._icon.Size = UDim2.new(0, 44, 0, 44)
@@ -208,6 +209,51 @@ function ShadowHub:CreateWindow(title, opts)
 	self._icon.Parent = self._gui
 	UIC(self._icon, 14)
 	Stroke(self._icon, Theme.Accent, 1.5, 0.4)
+
+	-- Stealth mode: invisible but clickable hitbox
+	self._icon.MouseEnter:Connect(function()
+		if self._stealthMode then
+			Tween(self._icon, TweenInfo.new(0.2), {BackgroundTransparency = 0.3, TextTransparency = 0})
+		end
+	end)
+	self._icon.MouseLeave:Connect(function()
+		if self._stealthMode then
+			Tween(self._icon, TweenInfo.new(0.2), {BackgroundTransparency = 1, TextTransparency = 1})
+		end
+	end)
+
+	-- Make icon draggable in stealth mode
+	local iconDragging = false
+	local iconDragStart = nil
+	local iconStartPos = nil
+
+	self._icon.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			if self._stealthMode or (input.Position - self._icon.AbsolutePosition).Magnitude < 50 then
+				iconDragging = true
+				iconDragStart = input.Position
+				iconStartPos = self._icon.Position
+			end
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			iconDragging = false
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if iconDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - iconDragStart
+			self._icon.Position = UDim2.new(
+				iconStartPos.X.Scale,
+				iconStartPos.X.Offset + delta.X,
+				iconStartPos.Y.Scale,
+				iconStartPos.Y.Offset + delta.Y
+			)
+		end
+	end)
 
 	-- Main frame (glass)
 	self._main = Instance.new("Frame")
@@ -364,7 +410,14 @@ function ShadowHub:CreateWindow(title, opts)
 	self:_initDrag()
 
 	self._icon.MouseButton1Click:Connect(function()
-		if self._open then self:Close() else self:Open() end
+		if self._stealthMode then
+			-- In stealth mode, click opens the menu
+			self:Open()
+		elseif self._open then
+			self:Close()
+		else
+			self:Open()
+		end
 	end)
 
 	UserInputService.InputBegan:Connect(function(input, processed)
@@ -508,17 +561,73 @@ function ShadowHub:Open()
 		Size = UDim2.new(0, 540, 0, 440),
 		BackgroundTransparency = 0.25,
 	})
+	-- Restore accent line
+	local accentLine = self._topbar:FindFirstChild("Frame")
+	if accentLine then
+		accentLine.Size = UDim2.new(1, 0, 0, 2)
+		accentLine.BackgroundTransparency = 0.4
+	end
+	-- Exit stealth mode on open
+	if self._stealthMode then
+		self._stealthMode = false
+		Tween(self._icon, TweenInfo.new(0.2), {BackgroundTransparency = 0.1, TextTransparency = 0})
+	end
 end
 
 function ShadowHub:Close()
 	self._open = false
+	-- Animate main frame AND hide the accent line
 	local t = Tween(self._main, TweenInfo.new(0.25, Ease.In, Enum.EasingDirection.In), {
 		Size = UDim2.new(0, 540, 0, 0),
 		BackgroundTransparency = 0.6,
 	})
+	-- Also animate the topbar accent line to 0 width
+	local accentLine = self._topbar:FindFirstChild("Frame")
+	if accentLine then
+		Tween(accentLine, TweenInfo.new(0.2, Ease.In), {
+			Size = UDim2.new(0, 0, 0, 2),
+			BackgroundTransparency = 1,
+		})
+	end
 	t.Completed:Connect(function()
 		if not self._open then self._main.Visible = false end
 	end)
+end
+
+-- Stealth mode: invisible but clickable/draggable icon
+function ShadowHub:SetStealthMode(enabled)
+	self._stealthMode = enabled
+	if enabled then
+		-- Fade to invisible but keep hitbox
+		Tween(self._icon, TweenInfo.new(0.3, Ease.Out), {
+			BackgroundTransparency = 1,
+			TextTransparency = 1,
+		})
+		-- Hide stroke too
+		local stroke = self._icon:FindFirstChild("UIStroke")
+		if stroke then
+			Tween(stroke, TweenInfo.new(0.3, Ease.Out), {Transparency = 1})
+		end
+	else
+		-- Restore visible
+		Tween(self._icon, TweenInfo.new(0.3, Ease.Out), {
+			BackgroundTransparency = 0.1,
+			TextTransparency = 0,
+		})
+		local stroke = self._icon:FindFirstChild("UIStroke")
+		if stroke then
+			Tween(stroke, TweenInfo.new(0.3, Ease.Out), {Transparency = 0.4})
+		end
+	end
+end
+
+function ShadowHub:ToggleStealthMode()
+	self:SetStealthMode(not self._stealthMode)
+	return self._stealthMode
+end
+
+function ShadowHub:IsStealthMode()
+	return self._stealthMode
 end
 
 function ShadowHub:Section(name)
