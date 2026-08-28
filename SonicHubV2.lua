@@ -55,17 +55,44 @@ local function IsColorClose(a, b, tol)
 	return math.abs(a.R - b.R) < tol and math.abs(a.G - b.G) < tol and math.abs(a.B - b.B) < tol
 end
 
+-- Enemy cache to avoid GetDescendants() every frame
+local EnemyCache = {}
+local CacheTime = {}
+
 local function IsEnemy(player)
 	if Config.FFAMode then return true end
 	if player == LocalPlayer then return false end
+
+	local now = tick()
+	-- Cache for 2 seconds
+	if EnemyCache[player] ~= nil and (now - (CacheTime[player] or 0)) < 2 then
+		return EnemyCache[player]
+	end
+
 	local char = player.Character
-	if not char then return false end
+	if not char then
+		EnemyCache[player] = false
+		CacheTime[player] = now
+		return false
+	end
+
 	for _, v in ipairs(char:GetDescendants()) do
 		if v:IsA("Highlight") and v.OutlineColor then
-			if IsColorClose(v.OutlineColor, Color3.fromRGB(255, 0, 0), 0.3) then return true end
-			if IsColorClose(v.OutlineColor, Color3.fromRGB(0, 255, 100), 0.3) then return false end
+			if IsColorClose(v.OutlineColor, Color3.fromRGB(255, 0, 0), 0.3) then
+				EnemyCache[player] = true
+				CacheTime[player] = now
+				return true
+			end
+			if IsColorClose(v.OutlineColor, Color3.fromRGB(0, 255, 100), 0.3) then
+				EnemyCache[player] = false
+				CacheTime[player] = now
+				return false
+			end
 		end
 	end
+
+	EnemyCache[player] = false
+	CacheTime[player] = now
 	return false
 end
 
@@ -129,6 +156,17 @@ local function AimAtTarget(target)
 	local part = target.Character:FindFirstChild(partName)
 	if not part then return end
 	Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, part.Position), Config.AimSmooth)
+	-- Record damage for kill credit tracking (client-side approximation)
+	RecordDamage(target)
+end
+
+-- Track who we damaged for accurate kill credit (client-side approximation)
+local DamageDealt = {}
+
+local function RecordDamage(targetPlayer)
+	if targetPlayer and targetPlayer ~= LocalPlayer then
+		DamageDealt[targetPlayer] = tick()
+	end
 end
 
 -- PREMIUM ESP SYSTEM
@@ -160,7 +198,8 @@ local function HideESP(player)
 			data.Highlight.Enabled = false
 			data.Tracer.Visible = false
 			data.Dot.Visible = false
-			data.Glow.Enabled = false
+			data.DotGlow.Visible = false
+			data.Glow.Visible = false
 		end)
 	end
 end
@@ -171,7 +210,7 @@ local function ShowESP(player)
 		pcall(function()
 			data.Frame.Enabled = true
 			data.Highlight.Enabled = true
-			data.Glow.Enabled = true
+			data.Glow.Visible = true
 		end)
 	end
 end
@@ -646,7 +685,12 @@ local function MonitorPlayer(player)
 			if oldHP > 0 and newHP <= 0 then
 				task.delay(0.1, function() RemoveESP(player) end)
 				local dist = GetDistance(player)
-				if State.Target == player or dist < 80 then
+				-- Only count kill if: we were targeting them, OR we were close AND recently damaged them
+				local wasTarget = State.Target == player
+				local recentlyDamaged = DamageDealt[player] and (tick() - DamageDealt[player] < 5)
+				local shouldCount = wasTarget or (dist < 50 and recentlyDamaged)
+
+				if shouldCount then
 					State.Kills += 1
 					State.Streak += 1
 					if Config.HitSound then
@@ -665,6 +709,7 @@ local function MonitorPlayer(player)
 					if State.Streak == 5 then ShadowHub:Notify("Streak!", "5x", "streak", 3) end
 					if State.Streak == 10 then ShadowHub:Notify("Unstoppable!", "10x", "streak", 4) end
 				end
+				DamageDealt[player] = nil
 			end
 		end)
 	end
@@ -738,16 +783,28 @@ menu:Slider(s4, "FOV", 30, 120, 70, function(v) Config.FOV = v Camera.FieldOfVie
 
 local status = menu:StatusBar("K: 0 | S: 0")
 
+-- ESP update throttle (30fps instead of every frame for performance)
+local lastESPUpdate = 0
+local ESP_UPDATE_INTERVAL = 1/30
+
 -- MAIN LOOP
 RunService.RenderStepped:Connect(function(dt)
-	UpdateAllESP()
+	local now = tick()
+	if now - lastESPUpdate >= ESP_UPDATE_INTERVAL then
+		lastESPUpdate = now
+		UpdateAllESP()
+	end
 
 	if Config.AimAssist then
 		local target = FindTarget()
 		if Config.TargetLock then
-			if not IsValidTarget(State.Target) then State.Target = target end
+			-- TargetLock: persist current target until it becomes invalid OR manually cleared
+			if not State.Target or not IsValidTarget(State.Target) then
+				State.Target = target
+			end
+			-- If we have a locked target, always aim at it (don't switch to closer target)
 		else
-			State.Target = target
+			State.Target = target -- no lock, always switch to closest
 		end
 		AimAtTarget(State.Target)
 	else
